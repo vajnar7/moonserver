@@ -4,39 +4,72 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ecc7a739-fe79-43d5-a034-cc26bb5cb2a5" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/moonServer.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/manage.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/moonServer/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/moonServer/asgi.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/moonServer/settings.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/moonServer/urls.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/moonServer/wsgi.py" afterDir="false" />
+    <list default="true" id="ecc7a739-fe79-43d5-a034-cc26bb5cb2a5" name="Changes" comment="Moon server. Vanilla.">
+      <change afterPath="$PROJECT_DIR$/controller/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/controller/admin.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/controller/apps.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/controller/connection.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/controller/io.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/controller/migrations/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/controller/models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/controller/tests.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/controller/urls.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/controller/views.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/telescope/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/telescope/admin.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/telescope/apps.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/telescope/migrations/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/telescope/models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/telescope/position.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/telescope/processor.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/telescope/status_state_machine.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/telescope/telescope.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/telescope/tests.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/telescope/views.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/moonServer/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/moonServer/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/moonServer/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/moonServer/settings.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/moonServer/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/moonServer/urls.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
+  <component name="DjangoConsoleOptions" custom-start-script="import sys; print('Python %s on %s' % (sys.version, sys.platform))&#10;import django; print('Django %s' % django.get_version())&#10;sys.path.extend([WORKING_DIR_AND_PYTHON_PATHS])&#10;if 'setup' in dir(django): django.setup()&#10;import django_manage_shell; django_manage_shell.run(PROJECT_ROOT)">
+    <option name="myCustomStartScript" value="import sys; print('Python %s on %s' % (sys.version, sys.platform))&#10;import django; print('Django %s' % django.get_version())&#10;sys.path.extend([WORKING_DIR_AND_PYTHON_PATHS])&#10;if 'setup' in dir(django): django.setup()&#10;import django_manage_shell; django_manage_shell.run(PROJECT_ROOT)" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 5
 }</component>
   <component name="ProjectId" id="2cPkFdGym220tCZiYO52NXuvo55" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
+    &quot;ASKED_ADD_EXTERNAL_FILES&quot;: &quot;true&quot;,
+    &quot;Django Server.moonServer.executor&quot;: &quot;Debug&quot;,
+    &quot;Django tests.Test: telescope.tests.ControlApiTestCase.executor&quot;: &quot;Run&quot;,
+    &quot;Django tests.Test: telescope.tests.StateMachineTestCase.executor&quot;: &quot;Debug&quot;,
     &quot;RunOnceActivity.OpenDjangoStructureViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
@@ -49,8 +82,13 @@
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
-  <component name="RunManager">
-    <configuration name="moonServer" type="Python.DjangoServer" factoryName="Django server">
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/controller" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Django Server.moonServer">
+    <configuration name="Test: telescope.tests.ControlApiTestCase" type="DjangoTestsConfigurationType" temporary="true">
       <module name="moonServer" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -60,12 +98,56 @@
       </envs>
       <option name="SDK_HOME" value="" />
       <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="TARGET" value="telescope.tests.ControlApiTestCase" />
+      <option name="SETTINGS_FILE" value="" />
+      <option name="CUSTOM_SETTINGS" value="false" />
+      <option name="USE_OPTIONS" value="false" />
+      <option name="OPTIONS" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Test: telescope.tests.StateMachineTestCase" type="DjangoTestsConfigurationType" temporary="true">
+      <module name="moonServer" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="TARGET" value="telescope.tests.StateMachineTestCase" />
+      <option name="SETTINGS_FILE" value="" />
+      <option name="CUSTOM_SETTINGS" value="false" />
+      <option name="USE_OPTIONS" value="false" />
+      <option name="OPTIONS" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="moonServer" type="Python.DjangoServer" factoryName="Django server">
+      <module name="moonServer" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+        <env name="DJANGO_SETTINGS_MODULE" value="moonServer.settings" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="SDK_NAME" value="Python 3.8 (moonServer)" />
+      <option name="WORKING_DIRECTORY" value="" />
       <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="launchJavascriptDebuger" value="false" />
-      <option name="port" value="8000" />
-      <option name="host" value="localhost" />
+      <option name="port" value="8001" />
+      <option name="host" value="192.168.1.10" />
       <option name="additionalOptions" value="" />
       <option name="browserUrl" value="" />
       <option name="runTestServer" value="false" />
@@ -74,11 +156,17 @@
       <option name="customRunCommand" value="" />
       <method v="2" />
     </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Django tests.Test: telescope.tests.ControlApiTestCase" />
+        <item itemvalue="Django tests.Test: telescope.tests.StateMachineTestCase" />
+      </list>
+    </recent_temporary>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-python-sdk-5a2391486177-2887949eec09-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-233.13763.11" />
+        <option value="bundled-python-sdk-09665e90c3a7-b11f5e8da5ad-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-233.15026.15" />
       </set>
     </attachedChunks>
   </component>
@@ -92,10 +180,68 @@
       <updated>1708020499815</updated>
       <workItem from="1708020508700" duration="603000" />
       <workItem from="1708075532635" duration="125000" />
+      <workItem from="1708075775596" duration="3604000" />
+      <workItem from="1708245235397" duration="7724000" />
+      <workItem from="1708508641641" duration="5854000" />
+      <workItem from="1708593115420" duration="18567000" />
+      <workItem from="1708676606309" duration="7756000" />
+      <workItem from="1708761036443" duration="13928000" />
+      <workItem from="1708868567622" duration="10899000" />
+      <workItem from="1708972946560" duration="3714000" />
+      <workItem from="1709023241919" duration="4000" />
+      <workItem from="1709024849561" duration="13700000" />
+      <workItem from="1709111200140" duration="3206000" />
+      <workItem from="1709369669469" duration="27026000" />
+      <workItem from="1709457057544" duration="261000" />
+      <workItem from="1709457782092" duration="8336000" />
+      <workItem from="1709631214275" duration="3578000" />
+      <workItem from="1709653911389" duration="4002000" />
+      <workItem from="1710010781162" duration="2642000" />
+      <workItem from="1710077964912" duration="5352000" />
+      <workItem from="1710151404893" duration="3186000" />
+      <workItem from="1710235981936" duration="14000" />
+      <workItem from="1710261179057" duration="988000" />
+      <workItem from="1710324593373" duration="19535000" />
+      <workItem from="1710402197592" duration="5434000" />
+      <workItem from="1710435217021" duration="2669000" />
+      <workItem from="1710523980500" duration="1466000" />
+      <workItem from="1710666936541" duration="10726000" />
+      <workItem from="1710872786980" duration="4152000" />
+      <workItem from="1711048021423" duration="290000" />
+      <workItem from="1711719417251" duration="1718000" />
     </task>
+    <task id="LOCAL-00001" summary="Moon server. Vanilla.">
+      <option name="closed" value="true" />
+      <created>1708078072273</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1708078072273</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
+    <MESSAGE value="Moon server. Vanilla." />
+    <option name="LAST_COMMIT_MESSAGE" value="Moon server. Vanilla." />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/telescope/status_state_machine.py</url>
+          <line>57</line>
+          <option name="timeStamp" value="21" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/moonServer$Test__telescope_tests_StateMachineTestCase.coverage" NAME="Test: telescope.tests.StateMachineTestCase Coverage Results" MODIFIED="1709028544389" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/moonServer$Test__telescope_tests_ControlApiTestCase.coverage" NAME="Test: telescope.tests.ControlApiTestCase Coverage Results" MODIFIED="1709057517171" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
   </component>
 </project>
