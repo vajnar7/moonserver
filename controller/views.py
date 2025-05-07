@@ -7,6 +7,19 @@ from rest_framework.permissions import AllowAny
 from moonServer import telescope
 from telescope.status_state_machine import user_out, user_in, user_ping
 
+TIMEOUT = 10
+
+
+def float_to_angle(value: float) -> str:
+    return ""
+
+
+def _wait_for_response():
+    try:
+        return user_in.get(block=True, timeout=TIMEOUT)
+    except queue.Empty:
+        return "TIMEOUT"
+
 
 class GetAstroData(APIView):
     permission_classes = (AllowAny,)
@@ -27,6 +40,7 @@ class Calibrated(APIView):
     def post(self, request):
         telescope.set_cur_obj(request.data)  # "obj" = "2h31m48.704s +89°15'50.72"
         res = "POS 89°15'50.72 130°15'50.72" # alt az
+        # res = "POS " + telescope.alt + " " + telescope.az
         user_ping.put(res)
         return Response()
 
@@ -37,6 +51,24 @@ class GetStatus(APIView):
     def post(self, request):
         user_out.put("MVST?")
         res = user_in.get()
+        return Response(res)
+
+
+class MoveStart(APIView):
+    permission_classes = (AllowAny,)
+
+    def post(self, request):
+        user_out.put("MVS " + request.data + " " + telescope.get_max_speed())
+        res = _wait_for_response()
+        return Response(res)
+
+
+class MoveEnd(APIView):
+    permission_classes = (AllowAny,)
+
+    def post(self, request):
+        user_out.put("MVE")
+        res = _wait_for_response()
         return Response(res)
 
 

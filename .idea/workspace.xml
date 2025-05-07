@@ -4,33 +4,16 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ecc7a739-fe79-43d5-a034-cc26bb5cb2a5" name="Changes" comment="Moon server. Vanilla.">
-      <change afterPath="$PROJECT_DIR$/controller/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/controller/admin.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/controller/apps.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/controller/connection.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/controller/io.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/controller/migrations/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/controller/models.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/controller/tests.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/controller/urls.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/controller/views.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/telescope/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/telescope/admin.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/telescope/apps.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/telescope/migrations/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/telescope/models.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/telescope/position.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/telescope/processor.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/telescope/status_state_machine.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/telescope/telescope.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/telescope/tests.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/telescope/views.py" afterDir="false" />
+    <list default="true" id="ecc7a739-fe79-43d5-a034-cc26bb5cb2a5" name="Changes" comment="Moon server. Device IO state machine">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/controller/io.py" beforeDir="false" afterPath="$PROJECT_DIR$/controller/io.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/controller/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/controller/urls.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/controller/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/controller/views.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/moonServer/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/moonServer/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/moonServer/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/moonServer/settings.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/moonServer/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/moonServer/urls.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/telescope/device_io_machine.py" beforeDir="false" afterPath="$PROJECT_DIR$/telescope/device_io_machine.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/telescope/processor.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/telescope/status_state_machine.py" beforeDir="false" afterPath="$PROJECT_DIR$/telescope/status_state_machine.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/telescope/telescope.py" beforeDir="false" afterPath="$PROJECT_DIR$/telescope/telescope.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -50,6 +33,18 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;vajnar7&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/vajnar7/moonserver&quot;,
+    &quot;accountId&quot;: &quot;67f391f5-c247-4ae0-b54c-8baf68d1a945&quot;
+  }
+}</component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
   </component>
@@ -57,7 +52,7 @@
   &quot;associatedIndex&quot;: 5
 }</component>
   <component name="ProjectId" id="2cPkFdGym220tCZiYO52NXuvo55" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true">
+  <component name="ProjectLevelVcsManager">
     <ConfirmationsSetting value="2" id="Add" />
   </component>
   <component name="ProjectViewState">
@@ -67,12 +62,15 @@
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
     &quot;ASKED_ADD_EXTERNAL_FILES&quot;: &quot;true&quot;,
-    &quot;Django Server.moonServer.executor&quot;: &quot;Debug&quot;,
+    &quot;Django Server.moonServer.executor&quot;: &quot;Run&quot;,
     &quot;Django tests.Test: telescope.tests.ControlApiTestCase.executor&quot;: &quot;Run&quot;,
     &quot;Django tests.Test: telescope.tests.StateMachineTestCase.executor&quot;: &quot;Debug&quot;,
+    &quot;Notification.DisplayName-DoNotAsk-DatabaseConfigFileWatcher.found&quot;: &quot;Database connection parameters found&quot;,
+    &quot;Notification.DoNotAsk-DatabaseConfigFileWatcher.found&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.OpenDjangoStructureViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;master&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
@@ -166,7 +164,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-python-sdk-09665e90c3a7-b11f5e8da5ad-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-233.15026.15" />
+        <option value="bundled-js-predefined-d6986cc7102b-f27c65a3e318-JavaScript-PY-251.23774.444" />
+        <option value="bundled-python-sdk-890ed5b35930-d9c5bdb153f4-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-251.23774.444" />
       </set>
     </attachedChunks>
   </component>
@@ -209,6 +208,56 @@
       <workItem from="1710872786980" duration="4152000" />
       <workItem from="1711048021423" duration="290000" />
       <workItem from="1711719417251" duration="1718000" />
+      <workItem from="1711800486020" duration="4751000" />
+      <workItem from="1711883169951" duration="5388000" />
+      <workItem from="1711954069022" duration="3336000" />
+      <workItem from="1712167689867" duration="1268000" />
+      <workItem from="1712217991110" duration="2961000" />
+      <workItem from="1712320364535" duration="2041000" />
+      <workItem from="1712406512217" duration="2058000" />
+      <workItem from="1712649484301" duration="2675000" />
+      <workItem from="1712687333325" duration="1031000" />
+      <workItem from="1712766058777" duration="2226000" />
+      <workItem from="1712924924105" duration="4784000" />
+      <workItem from="1712990714201" duration="4242000" />
+      <workItem from="1713252548983" duration="6613000" />
+      <workItem from="1713429164440" duration="8802000" />
+      <workItem from="1713515219540" duration="7755000" />
+      <workItem from="1713614144565" duration="1497000" />
+      <workItem from="1713802044202" duration="2787000" />
+      <workItem from="1713944578224" duration="10471000" />
+      <workItem from="1714033594850" duration="4391000" />
+      <workItem from="1714827697677" duration="1253000" />
+      <workItem from="1716031060215" duration="1876000" />
+      <workItem from="1716189162107" duration="8878000" />
+      <workItem from="1716275825884" duration="11383000" />
+      <workItem from="1716395804728" duration="987000" />
+      <workItem from="1716452776482" duration="5816000" />
+      <workItem from="1716537769240" duration="4210000" />
+      <workItem from="1716737480443" duration="1400000" />
+      <workItem from="1716795463782" duration="2979000" />
+      <workItem from="1716893372217" duration="905000" />
+      <workItem from="1717057071467" duration="11868000" />
+      <workItem from="1717141212790" duration="5388000" />
+      <workItem from="1717228382990" duration="4485000" />
+      <workItem from="1717331892543" duration="898000" />
+      <workItem from="1717397756952" duration="7810000" />
+      <workItem from="1717519923632" duration="1683000" />
+      <workItem from="1718094568483" duration="1559000" />
+      <workItem from="1719838381065" duration="6019000" />
+      <workItem from="1722959395974" duration="904000" />
+      <workItem from="1723288930456" duration="8000" />
+      <workItem from="1723454373751" duration="2000" />
+      <workItem from="1725614743661" duration="2000" />
+      <workItem from="1725885169912" duration="1000" />
+      <workItem from="1728563684224" duration="67000" />
+      <workItem from="1733164167756" duration="3000" />
+      <workItem from="1739348837116" duration="1000" />
+      <workItem from="1741251672230" duration="8000" />
+      <workItem from="1745569026782" duration="1763000" />
+      <workItem from="1745651524942" duration="1844000" />
+      <workItem from="1746188648793" duration="911000" />
+      <workItem from="1746529904744" duration="795000" />
     </task>
     <task id="LOCAL-00001" summary="Moon server. Vanilla.">
       <option name="closed" value="true" />
@@ -218,7 +267,23 @@
       <option name="project" value="LOCAL" />
       <updated>1708078072273</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="Moon server. Vanilla.">
+      <option name="closed" value="true" />
+      <created>1711800547162</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1711800547162</updated>
+    </task>
+    <task id="LOCAL-00003" summary="Moon server. Device IO state machine">
+      <option name="closed" value="true" />
+      <created>1713541405533</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1713541405533</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -227,18 +292,8 @@
   <component name="VcsManagerConfiguration">
     <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
     <MESSAGE value="Moon server. Vanilla." />
-    <option name="LAST_COMMIT_MESSAGE" value="Moon server. Vanilla." />
-  </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/telescope/status_state_machine.py</url>
-          <line>57</line>
-          <option name="timeStamp" value="21" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
+    <MESSAGE value="Moon server. Device IO state machine" />
+    <option name="LAST_COMMIT_MESSAGE" value="Moon server. Device IO state machine" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/moonServer$Test__telescope_tests_StateMachineTestCase.coverage" NAME="Test: telescope.tests.StateMachineTestCase Coverage Results" MODIFIED="1709028544389" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />

@@ -17,12 +17,15 @@ class DeviceIOMachine(Thread):
 
     def run(self):
         while self._running:
-            res = read_from_device()
-            device_in.put(res)
-
+            # write to device
             try:
                 res = device_out.get(block=True, timeout=1)
             except queue.Empty:
                 res = "NOP"
             if res != "NOP":
                 write_to_device(res)
+
+            # read device
+            res = read_from_device()
+            if res != "NOP":
+                device_in.put(res)

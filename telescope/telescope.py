@@ -1,3 +1,4 @@
+from telescope.device_io_machine import DeviceIOMachine
 from telescope.position import Position
 from telescope.status_state_machine import StatusStateMachine
 
@@ -12,6 +13,8 @@ class Telescope(Position):
         self.status = ST_NOT_CALIBRATED
         self.state_machine = StatusStateMachine()
         self.state_machine.start()
+        self.device_state_machine = DeviceIOMachine()
+        self.device_state_machine.start()
 
     @staticmethod
     def _parse_hour_angle(val: str) -> float:
@@ -37,3 +40,6 @@ class Telescope(Position):
         res = val.split(" ")
         self.cur_object = res[0]
         self.calc_alt_az(self._parse_hour_angle(res[1]), self._parse_angle(res[2]))
+
+    def get_max_speed(self):
+        return "500"
