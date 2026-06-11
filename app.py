@@ -1,6 +1,10 @@
 import threading
+import time
 from enum import Enum
+from queue import Empty
 from flask import Flask, jsonify, request
+
+import queue_manager
 
 app = Flask(__name__)
 
@@ -8,6 +12,7 @@ class MachineState(Enum):
     READY = "ready"
     CONNECTING = "connecting"
     CONNECTED = "connected"
+    MOVING = "moving"
     ERROR = "error"
 
 class StateMachine:
@@ -16,6 +21,7 @@ class StateMachine:
         self.error_data = None
         self._lock = threading.Lock()
         self._connect_timeout = None
+        self._move_timeout = None
 
     def _set_state(self, state, error_data=None):
         self.state = state
@@ -25,6 +31,9 @@ class StateMachine:
         if self._connect_timeout is not None:
             self._connect_timeout.cancel()
             self._connect_timeout = None
+        if self._move_timeout is not None:
+            self._move_timeout.cancel()
+            self._move_timeout = None
 
     def _connect_timeout_handler(self):
         with self._lock:
@@ -36,6 +45,17 @@ class StateMachine:
                 "Connection failed: no response from I/O",
             )
             self._connect_timeout = None
+
+    def _move_timeout_handler(self):
+        with self._lock:
+            if self.state != MachineState.MOVING:
+                return
+            print("I/O timeout: no movement acknowledgement, switching to error state")
+            self._set_state(
+                MachineState.ERROR,
+                "Move failed: no acknowledgement from I/O",
+            )
+            self._move_timeout = None
 
     def to_ready(self):
         with self._lock:
@@ -69,33 +89,82 @@ class StateMachine:
                 "error_data": None,
             }
 
-    def receive_io_response(self, success: bool, message: str | None = None):
+    def move(self, distance: int):
         with self._lock:
-            if self.state != MachineState.CONNECTING:
+            if self.state != MachineState.CONNECTED:
                 return {
                     "success": False,
-                    "message": f"No pending connection to complete from state {self.state.value}.",
+                    "message": f"Cannot move from state {self.state.value}.",
                     "state": self.state.value,
                     "error_data": self.error_data,
                 }
 
             self._cancel_timeout()
-            if success:
-                self._set_state(MachineState.CONNECTED)
+            self._set_state(MachineState.MOVING)
+            self.error_data = None
+
+            print(f"I/O action: moving {distance} units...")
+
+            self._move_timeout = threading.Timer(3.0, self._move_timeout_handler)
+            self._move_timeout.daemon = True
+            self._move_timeout.start()
+
+            return {
+                "success": True,
+                "message": "Move command started.",
+                "state": self.state.value,
+                "error_data": None,
+            }
+
+    def receive_io_response(self, success: bool, message: str | None = None):
+        with self._lock:
+            if self.state == MachineState.CONNECTING:
+                self._cancel_timeout()
+                if success:
+                    self._set_state(MachineState.CONNECTED)
+                    return {
+                        "success": True,
+                        "message": "Connection established.",
+                        "state": self.state.value,
+                        "error_data": None,
+                    }
+
+                self._set_state(
+                    MachineState.ERROR,
+                    message or "Connection failed: I/O reported failure",
+                )
                 return {
-                    "success": True,
-                    "message": "Connection established.",
+                    "success": False,
+                    "message": self.error_data,
                     "state": self.state.value,
-                    "error_data": None,
+                    "error_data": self.error_data,
                 }
 
-            self._set_state(
-                MachineState.ERROR,
-                message or "Connection failed: I/O reported failure",
-            )
+            if self.state == MachineState.MOVING:
+                self._cancel_timeout()
+                if success:
+                    self._set_state(MachineState.CONNECTED)
+                    return {
+                        "success": True,
+                        "message": "Move acknowledged.",
+                        "state": self.state.value,
+                        "error_data": None,
+                    }
+
+                self._set_state(
+                    MachineState.ERROR,
+                    message or "Move failed: I/O reported failure",
+                )
+                return {
+                    "success": False,
+                    "message": self.error_data,
+                    "state": self.state.value,
+                    "error_data": self.error_data,
+                }
+
             return {
                 "success": False,
-                "message": self.error_data,
+                "message": f"No pending operation to complete from state {self.state.value}.",
                 "state": self.state.value,
                 "error_data": self.error_data,
             }
@@ -108,10 +177,97 @@ class StateMachine:
             }
 
 machine = StateMachine()
+command_queue = None
+response_queue = None
+_response_thread = None
+_response_thread_stop = threading.Event()
+
+
+def connect_queue_manager(retries: int = 3, delay: float = 1.0) -> bool:
+    global command_queue, response_queue
+    for attempt in range(1, retries + 1):
+        try:
+            command_queue, response_queue = queue_manager.connect_to_manager()
+            print("Connected to the I/O emulator queue manager.")
+            return True
+        except Exception as exc:
+            print(f"Queue manager connect attempt {attempt} failed: {exc}")
+            time.sleep(delay)
+    return False
+
+
+def response_listener() -> None:
+    while not _response_thread_stop.is_set():
+        if response_queue is None:
+            if not connect_queue_manager(retries=1, delay=1.0):
+                time.sleep(1.0)
+                continue
+
+        try:
+            response = response_queue.get(timeout=0.5)
+        except Empty:
+            continue
+        except Exception as exc:
+            print(f"Response listener error: {exc}")
+            continue
+
+        if not isinstance(response, dict):
+            continue
+
+        success = response.get("success", False)
+        message = response.get("message")
+        result = machine.receive_io_response(success=success, message=message)
+        print(f"Received emulator response: {response} -> {result}")
+
+
+def start_response_thread() -> None:
+    global _response_thread
+    if _response_thread is not None and _response_thread.is_alive():
+        return
+
+    _response_thread_stop.clear()
+    _response_thread = threading.Thread(target=response_listener, daemon=True)
+    _response_thread.start()
+
 
 @app.route("/command/connect", methods=["POST"])
 def command_connect():
+    if command_queue is None and not connect_queue_manager():
+        return jsonify({
+            "success": False,
+            "message": "I/O emulator queue manager is not available.",
+            "state": machine.state.value,
+            "error_data": machine.error_data,
+        })
+
     result = machine.connect()
+    if result["success"]:
+        command_queue.put({"type": "connect"})
+    return jsonify(result)
+
+@app.route("/command/move", methods=["POST"])
+def command_move():
+    if command_queue is None and not connect_queue_manager():
+        return jsonify({
+            "success": False,
+            "message": "I/O emulator queue manager is not available.",
+            "state": machine.state.value,
+            "error_data": machine.error_data,
+        })
+
+    data = request.get_json(silent=True) or {}
+    distance = data.get("distance")
+    if not isinstance(distance, int):
+        return jsonify({
+            "success": False,
+            "message": "Invalid move request: distance must be an integer.",
+            "state": machine.state.value,
+            "error_data": machine.error_data,
+        })
+
+    result = machine.move(distance)
+    if result["success"]:
+        command_queue.put({"type": "move", "distance": distance})
     return jsonify(result)
 
 @app.route("/command/connect/response", methods=["POST"])
@@ -136,4 +292,5 @@ def command_reset():
     })
 
 if __name__ == "__main__":
+    start_response_thread()
     app.run(host="0.0.0.0", port=5000, debug=True)
