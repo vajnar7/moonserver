@@ -77,6 +77,7 @@ class StateMachine:
             self.error_data = None
 
             print("I/O action: attempting to connect...")
+            command_queue.put({"type": "connect"})
 
             self._connect_timeout = threading.Timer(3.0, self._connect_timeout_handler)
             self._connect_timeout.daemon = True
@@ -104,7 +105,7 @@ class StateMachine:
             self.error_data = None
 
             print(f"I/O action: moving {distance} units...")
-
+            command_queue.put({"type": "move", "distance": distance})
             self._move_timeout = threading.Timer(3.0, self._move_timeout_handler)
             self._move_timeout.daemon = True
             self._move_timeout.start()
