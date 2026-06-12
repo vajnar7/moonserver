@@ -1,10 +1,10 @@
 import threading
 import time
+import queue
 from enum import Enum
 from queue import Empty
 from flask import Flask, jsonify, request
-
-import queue_manager
+from io_emulator import start_emulator
 
 app = Flask(__name__)
 
@@ -177,38 +177,30 @@ class StateMachine:
             }
 
 machine = StateMachine()
-command_queue = None
-response_queue = None
-_response_thread = None
-_response_thread_stop = threading.Event()
+command_queue = queue.Queue()
+response_queue = queue.Queue()
 
 
-def connect_queue_manager(retries: int = 3, delay: float = 1.0) -> bool:
-    global command_queue, response_queue
-    for attempt in range(1, retries + 1):
-        try:
-            command_queue, response_queue = queue_manager.connect_to_manager()
-            print("Connected to the I/O emulator queue manager.")
-            return True
-        except Exception as exc:
-            print(f"Queue manager connect attempt {attempt} failed: {exc}")
-            time.sleep(delay)
-    return False
+# def connect_queue_manager(retries: int = 3, delay: float = 1.0) -> bool:
+#     global command_queue, response_queue
+#     for attempt in range(1, retries + 1):
+#         try:
+#             command_queue, response_queue = queue_manager.connect_to_manager()
+#             print("Connected to the I/O emulator queue manager.")
+#             return True
+#         except Exception as exc:
+#             print(f"Queue manager connect attempt {attempt} failed: {exc}")
+#             time.sleep(delay)
+#     return False
 
 
 def response_listener() -> None:
-    while not _response_thread_stop.is_set():
-        if response_queue is None:
-            if not connect_queue_manager(retries=1, delay=1.0):
-                time.sleep(1.0)
-                continue
-
+    print("Response listener thread started, waiting for responses from the emulator...")
+    while True:
         try:
-            response = response_queue.get(timeout=0.5)
-        except Empty:
-            continue
-        except Exception as exc:
-            print(f"Response listener error: {exc}")
+            response = response_queue.get()
+        except:
+            print(f"Response queue empty")
             continue
 
         if not isinstance(response, dict):
@@ -221,25 +213,12 @@ def response_listener() -> None:
 
 
 def start_response_thread() -> None:
-    global _response_thread
-    if _response_thread is not None and _response_thread.is_alive():
-        return
-
-    _response_thread_stop.clear()
-    _response_thread = threading.Thread(target=response_listener, daemon=True)
-    _response_thread.start()
+    response_thread = threading.Thread(target=response_listener, daemon=True)
+    response_thread.start()
 
 
 @app.route("/command/connect", methods=["POST"])
 def command_connect():
-    if command_queue is None and not connect_queue_manager():
-        return jsonify({
-            "success": False,
-            "message": "I/O emulator queue manager is not available.",
-            "state": machine.state.value,
-            "error_data": machine.error_data,
-        })
-
     result = machine.connect()
     if result["success"]:
         command_queue.put({"type": "connect"})
@@ -247,14 +226,6 @@ def command_connect():
 
 @app.route("/command/move", methods=["POST"])
 def command_move():
-    if command_queue is None and not connect_queue_manager():
-        return jsonify({
-            "success": False,
-            "message": "I/O emulator queue manager is not available.",
-            "state": machine.state.value,
-            "error_data": machine.error_data,
-        })
-
     data = request.get_json(silent=True) or {}
     distance = data.get("distance")
     if not isinstance(distance, int):
@@ -270,7 +241,7 @@ def command_move():
         command_queue.put({"type": "move", "distance": distance})
     return jsonify(result)
 
-@app.route("/command/connect/response", methods=["POST"])
+@app.route("/command/response", methods=["POST"])
 def command_connect_response():
     data = request.get_json(silent=True) or {}
     success = data.get("success", False)
@@ -292,5 +263,7 @@ def command_reset():
     })
 
 if __name__ == "__main__":
+    # Start the I/O emulator in a separate thread before starting the Flask app
+    start_emulator(command_queue, response_queue)
     start_response_thread()
     app.run(host="0.0.0.0", port=5000, debug=True)

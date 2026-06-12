@@ -1,9 +1,5 @@
 import threading
-import time
-import random
 from enum import Enum
-
-from queue_manager import start_manager_server
 
 
 class MachineState(Enum):
@@ -21,7 +17,6 @@ class IOEmulator:
         self.command_queue = command_queue
         self.response_queue = response_queue
         self._lock = threading.Lock()
-        self._running = True
 
     def _send_response(self, success, message):
         self.response_queue.put({
@@ -97,12 +92,14 @@ class IOEmulator:
             "error_data": self.error_data,
         })
 
-    def run(self):
+
+    def _run(self):
         print("I/O emulator started and waiting for commands on the queue.")
-        while self._running:
+        while True:
             try:
-                command = self.command_queue.get(timeout=0.5)
-            except Exception:
+                command = self.command_queue.get()
+            except:
+                print("Emulator: no command received, checking again...")
                 continue
 
             if not isinstance(command, dict):
@@ -111,20 +108,12 @@ class IOEmulator:
             print(f"Emulator: processing command {command}")
             self._handle_command(command)
 
-    def stop(self):
-        self._running = False
+    def start(self):
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
 
 
-if __name__ == "__main__":
-    manager = start_manager_server()
-    command_queue = manager.get_command_queue()
-    response_queue = manager.get_response_queue()
-
+def start_emulator(command_queue, response_queue):
     emulator = IOEmulator(command_queue, response_queue)
-    try:
-        emulator.run()
-    except KeyboardInterrupt:
-        print("Stopping emulator...")
-    finally:
-        emulator.stop()
-        manager.shutdown()
+    emulator.start()
+
