@@ -213,6 +213,18 @@ def response_listener() -> None:
         print(f"Received emulator response: {response} -> {result}")
 
 
+    @app.route("/login", methods=["POST"])
+    def login():
+        data = request.get_json(silent=True) or {}
+        username = data.get("username")
+        password = data.get("password")
+        if username == STATIC_USERNAME and password == STATIC_PASSWORD:
+            token = _generate_token(username)
+            return jsonify({"success": True, "token": token, "expires_in": TOKEN_TTL_SECONDS})
+
+        return jsonify({"success": False, "message": "Invalid credentials"}), 401
+
+
 def start_response_thread() -> None:
     response_thread = threading.Thread(target=response_listener, daemon=True)
     response_thread.start()
