@@ -4,6 +4,9 @@ import queue
 from enum import Enum
 from queue import Empty
 from flask import Flask, jsonify, request
+import secrets
+import datetime
+from functools import wraps
 from io_emulator import start_emulator
 
 app = Flask(__name__)
@@ -69,7 +72,7 @@ class StateMachine:
                     "success": False,
                     "message": f"Cannot connect from state {self.state.value}.",
                     "state": self.state.value,
-                    "error_data": self.error_data,
+                    "data": self.error_data,
                 }
 
             self._cancel_timeout()
@@ -77,7 +80,6 @@ class StateMachine:
             self.error_data = None
 
             print("I/O action: attempting to connect...")
-            command_queue.put({"type": "connect"})
 
             self._connect_timeout = threading.Timer(3.0, self._connect_timeout_handler)
             self._connect_timeout.daemon = True
@@ -87,10 +89,10 @@ class StateMachine:
                 "success": True,
                 "message": "Connection attempt started.",
                 "state": self.state.value,
-                "error_data": None,
+                "data": None,
             }
 
-    def move(self, distance: int):
+    def move(self, steps_a: int, steps_e: int):
         with self._lock:
             if self.state != MachineState.CONNECTED:
                 return {
@@ -104,8 +106,8 @@ class StateMachine:
             self._set_state(MachineState.MOVING)
             self.error_data = None
 
-            print(f"I/O action: moving {distance} units...")
-            command_queue.put({"type": "move", "distance": distance})
+            print(f"I/O action: moving {steps_a} units along axis A and {steps_e} units along axis E...")
+        
             self._move_timeout = threading.Timer(3.0, self._move_timeout_handler)
             self._move_timeout.daemon = True
             self._move_timeout.start()
@@ -167,7 +169,7 @@ class StateMachine:
                 "success": False,
                 "message": f"No pending operation to complete from state {self.state.value}.",
                 "state": self.state.value,
-                "error_data": self.error_data,
+                "data": self.error_data,
             }
 
     def status(self):
@@ -181,19 +183,48 @@ machine = StateMachine()
 command_queue = queue.Queue()
 response_queue = queue.Queue()
 
+# --- Simple in-memory token auth (static credentials) ---
+# Static username/password for now (placeholder for real user store)
+STATIC_USERNAME = "android"
+STATIC_PASSWORD = "password123"
 
-# def connect_queue_manager(retries: int = 3, delay: float = 1.0) -> bool:
-#     global command_queue, response_queue
-#     for attempt in range(1, retries + 1):
-#         try:
-#             command_queue, response_queue = queue_manager.connect_to_manager()
-#             print("Connected to the I/O emulator queue manager.")
-#             return True
-#         except Exception as exc:
-#             print(f"Queue manager connect attempt {attempt} failed: {exc}")
-#             time.sleep(delay)
-#     return False
+# token -> {"username": str, "expires": datetime}
+TOKENS: dict[str, dict] = {}
+TOKEN_TTL_SECONDS = 60 * 60  # 1 hour
 
+def _generate_token(username: str) -> str:
+    token = secrets.token_urlsafe(32)
+    expires = datetime.datetime.utcnow() + datetime.timedelta(seconds=TOKEN_TTL_SECONDS)
+    TOKENS[token] = {"username": username, "expires": expires}
+    return token
+
+def _validate_token(token: str) -> bool:
+    if not token:
+        return False
+    info = TOKENS.get(token)
+    if not info:
+        return False
+    if info["expires"] < datetime.datetime.utcnow():
+        # expired
+        del TOKENS[token]
+        return False
+    return True
+
+def auth_required(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        auth_header = request.headers.get("Authorization", "")
+        token = None
+        if auth_header.startswith("Bearer "):
+            token = auth_header.split(None, 1)[1].strip()
+        if not token:
+            token = request.headers.get("X-Auth-Token")
+
+        if not _validate_token(token):
+            return jsonify({"success": False, "message": "Unauthorized: invalid or missing token"}), 401
+        return func(*args, **kwargs)
+
+    return wrapper
 
 def response_listener() -> None:
     print("Response listener thread started, waiting for responses from the emulator...")
@@ -209,28 +240,29 @@ def response_listener() -> None:
 
         success = response.get("success", False)
         message = response.get("message")
+        
+        time.sleep(10)  # Simulate delay
+
         result = machine.receive_io_response(success=success, message=message)
         print(f"Received emulator response: {response} -> {result}")
-
-
-    @app.route("/login", methods=["POST"])
-    def login():
-        data = request.get_json(silent=True) or {}
-        username = data.get("username")
-        password = data.get("password")
-        if username == STATIC_USERNAME and password == STATIC_PASSWORD:
-            token = _generate_token(username)
-            return jsonify({"success": True, "token": token, "expires_in": TOKEN_TTL_SECONDS})
-
-        return jsonify({"success": False, "message": "Invalid credentials"}), 401
-
 
 def start_response_thread() -> None:
     response_thread = threading.Thread(target=response_listener, daemon=True)
     response_thread.start()
 
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.get_json(silent=True) or {}
+    username = data.get("username")
+    password = data.get("password")
+    if username == STATIC_USERNAME and password == STATIC_PASSWORD:
+        token = _generate_token(username)
+        return jsonify({"success": True, "token": token, "expires_in": TOKEN_TTL_SECONDS})
+
+    return jsonify({"success": False, "message": "Invalid credentials"}), 401
 
 @app.route("/command/connect", methods=["POST"])
+@auth_required
 def command_connect():
     result = machine.connect()
     if result["success"]:
@@ -239,19 +271,28 @@ def command_connect():
 
 @app.route("/command/move", methods=["POST"])
 def command_move():
-    data = request.get_json(silent=True) or {}
-    distance = data.get("distance")
-    if not isinstance(distance, int):
-        return jsonify({
-            "success": False,
-            "message": "Invalid move request: distance must be an integer.",
-            "state": machine.state.value,
-            "error_data": machine.error_data,
-        })
+    steps_a = 0
+    steps_e = 0
 
-    result = machine.move(distance)
+    data = request.get_json(silent=True) or {}
+    distance = data.get("p1")
+    object = data.get("p2")
+    if object:
+        # skalkuliraj koliko korakov se mora premakniti
+        print(f"Received move command with object: {object}")
+    else:
+        if distance == "left":
+            steps_a = -10
+        elif distance == "right":
+            steps_a = 10
+        elif distance == "up":  
+            steps_e = 10
+        elif distance == "down":
+            steps_e = -10
+
+    result = machine.move(steps_a, steps_e)
     if result["success"]:
-        command_queue.put({"type": "move", "distance": distance})
+        command_queue.put({"type": "move", "steps_a": steps_a, "steps_e": steps_e})
     return jsonify(result)
 
 @app.route("/command/response", methods=["POST"])
@@ -267,6 +308,7 @@ def get_state():
     return jsonify(machine.status())
 
 @app.route("/command/reset", methods=["POST"])
+@auth_required
 def command_reset():
     machine.to_ready()
     return jsonify({

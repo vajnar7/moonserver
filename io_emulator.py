@@ -35,24 +35,19 @@ class IOEmulator:
             self._send_response(True, "Connection established.")
             print("Emulator: connect succeeded")
 
-    def _simulate_move(self, distance):
+    def _simulate_move(self, steps_a, steps_e):
         with self._lock:
             if self.state != MachineState.MOVING:
-                return
-            if distance < 0:
-                self.state = MachineState.ERROR
-                self.error_data = "Move failed: negative distance"
-                self._send_response(False, self.error_data)
-                print("Emulator: move failed due to negative distance")
                 return
 
             self.state = MachineState.CONNECTED
             self.error_data = None
             self._send_response(True, "Move acknowledged.")
-            print(f"Emulator: move of {distance} units acknowledged")
+            print(f"Emulator: move of {steps_a} units along axis A and {steps_e} units along axis E acknowledged")
 
     def _handle_connect(self):
         with self._lock:
+            print(f"Emulator: current state is {self.state}")
             if self.state not in (MachineState.READY, MachineState.ERROR):
                 self.error_data = f"Cannot connect from state {self.state.value}."
                 self._send_response(False, self.error_data)
@@ -63,7 +58,7 @@ class IOEmulator:
 
         threading.Timer(1.0, self._simulate_connect).start()
 
-    def _handle_move(self, distance):
+    def _handle_move(self, steps_a, steps_e):
         with self._lock:
             if self.state != MachineState.CONNECTED:
                 self.error_data = f"Cannot move from state {self.state.value}."
@@ -71,17 +66,18 @@ class IOEmulator:
                 return
             self.state = MachineState.MOVING
             self.error_data = None
-            print(f"Emulator: received move command for {distance} units, waiting to respond...")
+            print(f"Emulator: received move command for {steps_a} units along axis A and {steps_e} units along axis E, waiting to respond...")
 
-        threading.Timer(1.5, self._simulate_move, args=(distance,)).start()
+        threading.Timer(1.5, self._simulate_move, args=(steps_a, steps_e)).start()
 
     def _handle_command(self, command):
         command_type = command.get("type")
         if command_type == "connect":
+            print("Emulator: handling connect command")
             self._handle_connect()
             return
         if command_type == "move":
-            self._handle_move(command.get("distance", 0))
+            self._handle_move(command.get("steps_a", 0), command.get("steps_e", 0))
             return
 
         print(f"Emulator: unknown command {command_type}")
