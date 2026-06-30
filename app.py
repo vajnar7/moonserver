@@ -241,8 +241,6 @@ def response_listener() -> None:
         success = response.get("success", False)
         message = response.get("message")
         
-        time.sleep(10)  # Simulate delay
-
         result = machine.receive_io_response(success=success, message=message)
         print(f"Received emulator response: {response} -> {result}")
 
