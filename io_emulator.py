@@ -49,6 +49,7 @@ class IOEmulator:
         with self._lock:
             print(f"Emulator: current state is {self.state}")
             if self.state not in (MachineState.READY, MachineState.ERROR):
+                print(f"Emulator: sfizu II {self.state}")
                 self.error_data = f"Cannot connect from state {self.state.value}."
                 self._send_response(False, self.error_data)
                 return
@@ -61,6 +62,7 @@ class IOEmulator:
     def _handle_move(self, steps_a, steps_e):
         with self._lock:
             if self.state != MachineState.CONNECTED:
+                print(f"Emulator: sfizu I {self.state}")
                 self.error_data = f"Cannot move from state {self.state.value}."
                 self._send_response(False, self.error_data)
                 return
@@ -68,7 +70,7 @@ class IOEmulator:
             self.error_data = None
             print(f"Emulator: received move command for {steps_a} units along axis A and {steps_e} units along axis E, waiting to respond...")
 
-        threading.Timer(1.5, self._simulate_move, args=(steps_a, steps_e)).start()
+        threading.Timer(7.0, self._simulate_move, args=(steps_a, steps_e)).start()
 
     def _handle_command(self, command):
         command_type = command.get("type")

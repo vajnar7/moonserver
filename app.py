@@ -108,7 +108,7 @@ class StateMachine:
 
             print(f"I/O action: moving {steps_a} units along axis A and {steps_e} units along axis E...")
         
-            self._move_timeout = threading.Timer(3.0, self._move_timeout_handler)
+            self._move_timeout = threading.Timer(10.0, self._move_timeout_handler)
             self._move_timeout.daemon = True
             self._move_timeout.start()
 
@@ -119,8 +119,10 @@ class StateMachine:
                 "error_data": None,
             }
 
+    # success = True, stanje je error
     def receive_io_response(self, success: bool, message: str | None = None):
         with self._lock:
+            print(f"To pa je trenutno stanje {self.state}")
             if self.state == MachineState.CONNECTING:
                 self._cancel_timeout()
                 if success:
@@ -131,7 +133,7 @@ class StateMachine:
                         "state": self.state.value,
                         "error_data": None,
                     }
-
+                print(f"Vajnar ta ga pofetin I")
                 self._set_state(
                     MachineState.ERROR,
                     message or "Connection failed: I/O reported failure",
@@ -153,7 +155,7 @@ class StateMachine:
                         "state": self.state.value,
                         "error_data": None,
                     }
-
+                print(f"Vajnar ta ga pofetin II {success}")
                 self._set_state(
                     MachineState.ERROR,
                     message or "Move failed: I/O reported failure",
@@ -169,7 +171,7 @@ class StateMachine:
                 "success": False,
                 "message": f"No pending operation to complete from state {self.state.value}.",
                 "state": self.state.value,
-                "data": self.error_data,
+                "error_data": self.error_data,
             }
 
     def status(self):
@@ -240,9 +242,11 @@ def response_listener() -> None:
 
         success = response.get("success", False)
         message = response.get("message")
-        
+        print(f"L.......................{success}")
         result = machine.receive_io_response(success=success, message=message)
-        print(f"Received emulator response: {response} -> {result}")
+        # print(f"Received emulator response: {response} -> {result}")
+        print(f"To pride iz emulatorja: {success} | {message} ")
+        print(f"To pa je stanje po tem: {result['state']} | {result['error_data']}")
 
 def start_response_thread() -> None:
     response_thread = threading.Thread(target=response_listener, daemon=True)
@@ -296,8 +300,9 @@ def command_move():
 @app.route("/command/response", methods=["POST"])
 def command_connect_response():
     data = request.get_json(silent=True) or {}
-    success = data.get("success", False)
+    success = data.get("success", True)
     message = data.get("message")
+    print(f"R........................{success}")
     result = machine.receive_io_response(success=success, message=message)
     return jsonify(result)
 
