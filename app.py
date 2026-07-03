@@ -151,22 +151,14 @@ class StateMachine:
             if self.state == MachineState.MOVING:
                 self._cancel_timeout()
                 if success:
-                    if message == MessageType.MVS_ACK:
-                        self._set_state(MachineState.MOVING)
-                        return {
-                            "success": True,
-                            "message": message.value,
-                            "state": self.state.value,
-                            "error_data": None,
-                        }
-                    if message == MessageType.NOT_RDY:
-                        self._set_state(MachineState.CONNECTED)
-                        return {
-                            "success": True,
-                            "message": message.value,
-                            "state": self.state.value,
-                            "error_data": None,
-                        }
+                    self._set_state(MachineState.CONNECTED)
+                    return {
+                        "success": True,
+                        "message": "Move acknowledged.",
+                        "state": self.state.value,
+                        "error_data": None,
+                    }
+                print(f"Vajnar ta ga pofetin II {success}")
                 self._set_state(
                     MachineState.ERROR,
                     message or "Move failed: I/O reported failure",
