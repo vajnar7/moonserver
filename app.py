@@ -7,7 +7,7 @@ from flask import Flask, jsonify, request
 import secrets
 import datetime
 from functools import wraps
-from io_emulator import start_emulator
+from io_emulator import start_emulator, CommandType, MessageType
 
 app = Flask(__name__)
 
@@ -92,6 +92,9 @@ class StateMachine:
                 "data": None,
             }
 
+    def move_start(self, direction: str, speed: int):
+        pass  # Placeholder for future implementation of move_start command
+
     def move(self, steps_a: int, steps_e: int):
         with self._lock:
             if self.state != MachineState.CONNECTED:
@@ -148,14 +151,22 @@ class StateMachine:
             if self.state == MachineState.MOVING:
                 self._cancel_timeout()
                 if success:
-                    self._set_state(MachineState.CONNECTED)
-                    return {
-                        "success": True,
-                        "message": "Move acknowledged.",
-                        "state": self.state.value,
-                        "error_data": None,
-                    }
-                print(f"Vajnar ta ga pofetin II {success}")
+                    if message == MessageType.MVS_ACK:
+                        self._set_state(MachineState.MOVING)
+                        return {
+                            "success": True,
+                            "message": message.value,
+                            "state": self.state.value,
+                            "error_data": None,
+                        }
+                    if message == MessageType.NOT_RDY:
+                        self._set_state(MachineState.CONNECTED)
+                        return {
+                            "success": True,
+                            "message": message.value,
+                            "state": self.state.value,
+                            "error_data": None,
+                        }
                 self._set_state(
                     MachineState.ERROR,
                     message or "Move failed: I/O reported failure",
@@ -269,6 +280,17 @@ def command_connect():
     result = machine.connect()
     if result["success"]:
         command_queue.put({"type": "connect"})
+    return jsonify(result)
+
+@app.route("/command/movestart", methods=["POST"])
+def command_move():
+    data = request.get_json(silent=True) or {}
+    direction = data.get("p1")
+    speed = data.get("p2")
+
+    result = machine.move_start(direction, speed)
+    if result["success"]:
+        command_queue.put({"type": CommandType.MVST, "direction": direction, "speed": speed})
     return jsonify(result)
 
 @app.route("/command/move", methods=["POST"])
