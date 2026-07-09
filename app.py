@@ -77,7 +77,6 @@ class StateMachine:
 
             self._cancel_timeout()
             self._set_state(MachineState.CONNECTING)
-            self.error_data = None
 
             print("I/O action: attempting to connect...")
 
