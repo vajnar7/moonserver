@@ -3,11 +3,12 @@ import time
 import queue
 from enum import Enum
 from queue import Empty
+from turtle import speed
 from flask import Flask, jsonify, request
 import secrets
 import datetime
 from functools import wraps
-from io_emulator import start_emulator, CommandType, MessageType
+from io_emulator import start_emulator, CommandType
 
 app = Flask(__name__)
 
@@ -20,6 +21,7 @@ class MachineState(Enum):
 
 class StateMachine:
     def __init__(self):
+        self.message = "NOT_RDY"
         self.state = MachineState.READY
         self.error_data = None
         self._lock = threading.Lock()
@@ -60,39 +62,51 @@ class StateMachine:
             )
             self._move_timeout = None
 
+    def _send_response(self, success, message: str, data=None):
+        self.message = message
+        self.error_data = data
+        return {
+                    "success": success,
+                    "message": self.message,
+                    "state": self.state.value,
+                    "error_data": self.error_data,
+        }
+
     def to_ready(self):
         with self._lock:
             self._cancel_timeout()
             self._set_state(MachineState.READY)
 
     def connect(self):
-        with self._lock:
-            if self.state not in (MachineState.READY, MachineState.ERROR):
-                return {
-                    "success": False,
-                    "message": f"Cannot connect from state {self.state.value}.",
-                    "state": self.state.value,
-                    "data": self.error_data,
-                }
-
+        with self._lock:         
             self._cancel_timeout()
             self._set_state(MachineState.CONNECTING)
 
             print("I/O action: attempting to connect...")
 
-            self._connect_timeout = threading.Timer(3.0, self._connect_timeout_handler)
-            self._connect_timeout.daemon = True
-            self._connect_timeout.start()
+            # self._connect_timeout = threading.Timer(3.0, self._connect_timeout_handler)
+            # self._connect_timeout.daemon = True
+            # self._connect_timeout.start()
 
-            return {
-                "success": True,
-                "message": "Connection attempt started.",
-                "state": self.state.value,
-                "data": None,
-            }
+            return self._send_response(True, "SENT", "Sent MV_ST? command to I/O.")
 
     def move_start(self, direction: str, speed: int):
-        pass  # Placeholder for future implementation of move_start command
+        with self._lock:
+            self._cancel_timeout()
+            self._set_state(MachineState.MOVING)
+
+            print(f"I/O action: starting move in direction '{direction}' with speed {speed}...")
+
+            return self._send_response(True, "SENT", f"Sent MVS command to I/O for direction '{direction}' at speed {speed}.")
+        
+    def move_end(self):
+        with self._lock:
+            self._cancel_timeout()
+            self._set_state(MachineState.MOVING)
+
+            print(f"I/O action: stopping previous move...")
+
+            return self._send_response(True, "SENT", f"Sent MVE command to I/O")
 
     def move(self, steps_a: int, steps_e: int):
         with self._lock:
@@ -121,53 +135,40 @@ class StateMachine:
                 "error_data": None,
             }
 
-    # success = True, stanje je error
-    def receive_io_response(self, success: bool, message: str | None = None):
+    def get_io_response(self):
         with self._lock:
-            print(f"To pa je trenutno stanje {self.state}")
-            if self.state == MachineState.CONNECTING:
-                self._cancel_timeout()
-                if success:
-                    self._set_state(MachineState.CONNECTED)
-                    return {
-                        "success": True,
-                        "message": "Connection established.",
-                        "state": self.state.value,
-                        "error_data": None,
-                    }
-                print(f"Vajnar ta ga pofetin I")
-                self._set_state(
-                    MachineState.ERROR,
-                    message or "Connection failed: I/O reported failure",
-                )
-                return {
-                    "success": False,
-                    "message": self.error_data,
-                    "state": self.state.value,
-                    "error_data": self.error_data,
-                }
+            return {
+                "success": True,
+                "message": self.message,
+                "state": self.state.value,
+                "error_data": self.error_data,
+            }
 
-            if self.state == MachineState.MOVING:
+    def receive_io_response(self, success: bool, message: str):
+        with self._lock:
+            if self.state == MachineState.CONNECTING: # MV_ST?
                 self._cancel_timeout()
-                if success:
+                if message == "READY":
                     self._set_state(MachineState.CONNECTED)
-                    return {
-                        "success": True,
-                        "message": "Move acknowledged.",
-                        "state": self.state.value,
-                        "error_data": None,
-                    }
-                print(f"Vajnar ta ga pofetin II {success}")
-                self._set_state(
-                    MachineState.ERROR,
-                    message or "Move failed: I/O reported failure",
-                )
-                return {
-                    "success": False,
-                    "message": self.error_data,
-                    "state": self.state.value,
-                    "error_data": self.error_data,
-                }
+                    return self._send_response(True, "READY", "Connection established")
+                elif message == "NOT_RDY":
+                    self._set_state(MachineState.READY)
+                    return self._send_response(True, "NOT_RDY", "Connection failed: I/O reported not ready")
+
+                
+            if self.state == MachineState.MOVING:
+                print("...........................Received I/O response:", message)
+
+                self._cancel_timeout()
+                if message == "MVS_ACK":
+                    self._set_state(MachineState.MOVING)
+                    return self._send_response(True, "MVS_ACK", "Start moving")
+                elif message == "MVE_ACK":
+                    self._set_state(MachineState.CONNECTED)
+                    return self._send_response(True, "MVE_ACK", "Move ended")
+                elif message == "NOT_RDY":
+                    self._set_state(MachineState.READY)
+                    return self._send_response(False, "NOT_RDY", "Move failed: I/O reported not ready")
 
             return {
                 "success": False,
@@ -244,11 +245,9 @@ def response_listener() -> None:
 
         success = response.get("success", False)
         message = response.get("message")
-        print(f"L.......................{success}")
-        result = machine.receive_io_response(success=success, message=message)
-        # print(f"Received emulator response: {response} -> {result}")
-        print(f"To pride iz emulatorja: {success} | {message} ")
-        print(f"To pa je stanje po tem: {result['state']} | {result['error_data']}")
+
+        # ta samo vpise v lokalne spremenljivke masine
+        machine.receive_io_response(success=success, message=message)
 
 def start_response_thread() -> None:
     response_thread = threading.Thread(target=response_listener, daemon=True)
@@ -269,19 +268,27 @@ def login():
 @auth_required
 def command_connect():
     result = machine.connect()
-    if result["success"]:
-        command_queue.put({"type": "connect"})
+    command_queue.put({"type": CommandType.MVST.value})
     return jsonify(result)
 
 @app.route("/command/movestart", methods=["POST"])
-def command_move():
+def command_movestart():
     data = request.get_json(silent=True) or {}
     direction = data.get("p1")
     speed = data.get("p2")
 
     result = machine.move_start(direction, speed)
+
     if result["success"]:
-        command_queue.put({"type": CommandType.MVST, "direction": direction, "speed": speed})
+        command_queue.put({"type": CommandType.MVS.value, "direction": direction, "speed": speed})
+    return jsonify(result)
+
+@app.route("/command/moveend", methods=["POST"])
+def command_moveend():
+    result = machine.move_end()
+
+    if result["success"]:
+        command_queue.put({"type": CommandType.MVE.value})
     return jsonify(result)
 
 @app.route("/command/move", methods=["POST"])
@@ -317,6 +324,11 @@ def command_connect_response():
     message = data.get("message")
     print(f"R........................{success}")
     result = machine.receive_io_response(success=success, message=message)
+    return jsonify(result)
+
+@app.route("/command/ping", methods=["POST"])
+def command_ping():
+    result = machine.get_io_response()
     return jsonify(result)
 
 @app.route("/state", methods=["GET"])
