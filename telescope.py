@@ -1,6 +1,13 @@
 import math
 from datetime import datetime, timezone
 
+CALIBRATOR = ("Polaris", 37.95456067, 89.26410897)  # RA, Dec in degrees
+
+# Mechanical characteristics
+MOTOR_STEPS_NUM = 200.0
+REDUCTOR_TRANSLATION = 30.0
+BELT_TRANSLATION = 48.0 / 14.0
+K = MOTOR_STEPS_NUM * REDUCTOR_TRANSLATION * BELT_TRANSLATION
 
 class Telescope:
     def __init__(self):

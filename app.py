@@ -9,6 +9,7 @@ import secrets
 import datetime
 from functools import wraps
 from io_emulator import start_emulator, CommandType
+from telescope import degrees_to_dms, degrees_to_hms
 
 app = Flask(__name__)
 
@@ -344,6 +345,33 @@ def command_reset():
         "message": "Machine reset to ready state.",
         "state": machine.state.value,
     })
+
+@app.route("/command/getastrodata", methods=["POST"])
+def getastrodata():
+    def format_coord(ra_deg: float, dec_deg: float):
+        ra_hms = degrees_to_hms(ra_deg)
+        dec_dms = degrees_to_dms(dec_deg)
+        return {
+            "ra": {
+                "hours": ra_hms[0],
+                "minutes": ra_hms[1],
+                "seconds": round(ra_hms[2], 3),
+            },
+            "dec": {
+                "degrees": dec_dms[0],
+                "minutes": dec_dms[1],
+                "seconds": round(dec_dms[2], 3),
+            },
+        }
+
+    return {
+        "data": {
+            "Polaris": format_coord(37.95456067, 89.26410897),
+            "Sirius": format_coord(101.28715533, -16.71611586),
+            "Betelgeuse": format_coord(88.792939, 7.407064),
+        }
+    }
+
 
 if __name__ == "__main__":
     # Start the I/O emulator in a separate thread before starting the Flask app
