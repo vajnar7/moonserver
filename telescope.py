@@ -8,6 +8,51 @@ class Telescope:
         self.v_steps = 0
 
 
+def hms_to_degrees(hours: int, minutes: int, seconds: float) -> float:
+    """Convert hour-minute-second RA to decimal degrees."""
+    if not 0 <= hours < 24:
+        raise ValueError("RA hours must be between 0 and 23")
+    if not 0 <= minutes < 60:
+        raise ValueError("RA minutes must be between 0 and 59")
+    if not 0 <= seconds < 60:
+        raise ValueError("RA seconds must be between 0 and 59")
+    return hours * 15.0 + minutes * 0.25 + seconds / 240.0
+
+
+def degrees_to_hms(degrees: float) -> tuple[int, int, float]:
+    """Convert decimal degrees to hour-minute-second RA."""
+    normalized = ((degrees % 360.0) + 360.0) % 360.0
+    hours = int(normalized / 15.0)
+    remaining = (normalized / 15.0 - hours) * 60.0
+    minutes = int(remaining)
+    seconds = (remaining - minutes) * 60.0
+    return hours, minutes, seconds
+
+
+def dms_to_degrees(degrees: int, minutes: int, seconds: float) -> float:
+    """Convert degree-minute-second Dec to decimal degrees."""
+    if not -90 <= degrees <= 90:
+        raise ValueError("Declination degrees must be between -90 and 90")
+    if not 0 <= minutes < 60:
+        raise ValueError("Declination minutes must be between 0 and 59")
+    if not 0 <= seconds < 60:
+        raise ValueError("Declination seconds must be between 0 and 59")
+    sign = -1 if degrees < 0 else 1
+    abs_degrees = abs(degrees)
+    return sign * (abs_degrees + minutes / 60.0 + seconds / 3600.0)
+
+
+def degrees_to_dms(degrees: float) -> tuple[int, int, float]:
+    """Convert decimal degrees to degree-minute-second Dec."""
+    sign = -1 if degrees < 0 else 1
+    abs_value = abs(degrees)
+    whole_degrees = int(abs_value)
+    remaining_minutes = (abs_value - whole_degrees) * 60.0
+    minutes = int(remaining_minutes)
+    seconds = (remaining_minutes - minutes) * 60.0
+    return sign * whole_degrees, minutes, seconds
+
+
 def convert_radec_to_az_el(
     ra_deg: float,
     dec_deg: float,
