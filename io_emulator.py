@@ -6,11 +6,13 @@ class CommandType(Enum):
     MVST = "MVST?"
     MVS = "MVS"
     MVE = "MVE"
+    MV = "MV"
 
 
 class MessageType(Enum):
     MVS_ACK = "MVS_ACK"
     MVE_ACK = "MVE_ACK"
+    MV_ACK = "MV_ACK"
     NOT_RDY = "NOT_RDY"
     READY = "READY"
     SENT = "SENT"
@@ -21,6 +23,7 @@ class MachineState(Enum):
     CONNECTING = "connecting"
     CONNECTED = "connected"
     MOVING = "moving"
+    PENDING = "pending"
     ERROR = "error"
 
 
@@ -44,11 +47,7 @@ class IOEmulator:
     # lahko vrne samo ready in not ready
     def _simulate_connect(self):
         # poslje lahko samo ready in not ready
-        with self._lock:
-            if self.state != MachineState.CONNECTING:
-                return
-            
-            # -> CONNECTED!
+        with self._lock:           
             self.state = MachineState.CONNECTED
             self.error_data = None
             self._send_response(True, MessageType.READY)
@@ -57,32 +56,34 @@ class IOEmulator:
     # lahko vrne samo MVS_ACK in NOT_RDY
     def _simulate_move(self, steps_a, steps_e):
         with self._lock:
-            if self.state != MachineState.MOVING:
-                return
-
-            self.state = MachineState.CONNECTED
+            self.state = MachineState.MOVING
             self.error_data = None
-            self._send_response(True, "Move acknowledged.")
+            self._send_response(True, MessageType.MV_ACK)
             print(f"Emulator: move of {steps_a} units along axis A and {steps_e} units along axis E acknowledged")
+        threading.Timer(7.0, self._simulate_target_reached).start()
 
-    # lahko vrne samo MVE_ACK in NOT_RDY
+    # lahko vrne samo MVS_ACK in NOT_RDY
     def _simulate_move_start(self, direction: str, speed: int):
         with self._lock:
-
-            # -> CONNECTED!
-            self.state = MachineState.CONNECTED
-            self.error_data = None
-            self._send_response(True, MessageType.MVE_ACK)
-            print(f"Emulator: move start of {direction} at speed {speed} acknowledged")
-
-    def _simulate_move_end(self):
-        with self._lock:
-
-            # MOVING.....
             self.state = MachineState.MOVING
             self.error_data = None
             self._send_response(True, MessageType.MVS_ACK)
+            print(f"Emulator: move start of {direction} at speed {speed} acknowledged")
+
+     # lahko vrne samo MVE_ACK in NOT_RDY
+    def _simulate_move_end(self):
+        with self._lock:
+            self.state = MachineState.CONNECTED
+            self.error_data = None
+            self._send_response(True, MessageType.MVE_ACK)
             print(f"Emulator: move end acknowledged")
+
+    def _simulate_target_reached(self):
+        with self._lock:
+            self.state = MachineState.CONNECTED
+            self.error_data = None
+            self._send_response(True, MessageType.READY)
+            print(f"Emulator: target reached")   
 
     def _handle_connect(self):
         with self._lock:
@@ -90,37 +91,31 @@ class IOEmulator:
             self.error_data = None
             print("Emulator: received connect command, waiting to respond...")
 
-        threading.Timer(1.0, self._simulate_connect).start()
+        threading.Timer(3.0, self._simulate_connect).start()
 
     
     def _handle_move_start(self, direction: str, speed: int):
         with self._lock:
-            self.state = MachineState.MOVING
+            self.state = MachineState.PENDING
             self.error_data = None
             print(f"Emulator: received move start command for {direction} at speed {speed}, waiting to respond...")
 
-        threading.Timer(3.0, self._simulate_move_start, args=(direction, speed)).start()
+        threading.Timer(1.0, self._simulate_move_start, args=(direction, speed)).start()
 
     def _handle_move_end(self):
         with self._lock:
-            self.state = MachineState.CONNECTED
+            self.state = MachineState.PENDING
             self.error_data = None
             print("Emulator: received move end command, waiting to respond...")
 
-        threading.Timer(3.0, self._simulate_move_end).start()
+        threading.Timer(1.0, self._simulate_move_end).start()
 
-    def _handle_move(self, steps_a, steps_e):
+    def _handle_move(self, steps_e, steps_a):
         with self._lock:
-            if self.state != MachineState.CONNECTED:
-                print(f"Emulator: sfizu I {self.state}")
-                self.error_data = f"Cannot move from state {self.state.value}."
-                self._send_response(False, self.error_data)
-                return
-            self.state = MachineState.MOVING
+            self.state = MachineState.PENDING
             self.error_data = None
             print(f"Emulator: received move command for {steps_a} units along axis A and {steps_e} units along axis E, waiting to respond...")
-
-        threading.Timer(3.0, self._simulate_move, args=(steps_a, steps_e)).start()
+        threading.Timer(2.0, self._simulate_move, args=(steps_a, steps_e)).start()
 
     def _handle_command(self, command):
         command_type = command.get("type")
@@ -128,8 +123,8 @@ class IOEmulator:
             print("Emulator: handling connect command")
             self._handle_connect()
             return
-        if command_type == "move":
-            self._handle_move(command.get("steps_a", 0), command.get("steps_e", 0))
+        if command_type == CommandType.MV.value:
+            self._handle_move(command.get("steps_e", 0), command.get("steps_a", 0))
             return
         if command_type == CommandType.MVS.value:
             self._handle_move_start(command.get("direction", "unknown"), command.get("speed", 0))

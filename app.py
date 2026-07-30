@@ -1,17 +1,25 @@
 import threading
-import time
 import queue
 from enum import Enum
-from queue import Empty
 from turtle import speed
 from flask import Flask, jsonify, request
 import secrets
 import datetime
 from functools import wraps
 from io_emulator import start_emulator, CommandType
-from telescope import degrees_to_dms, degrees_to_hms
+from telescope import convert_radec_to_az_el, degrees_to_dms, degrees_to_hms
 
 app = Flask(__name__)
+
+# koliko korakov je potrebno za premik za 1 stopinjo
+K_E = 100
+K_A = 100
+
+sky_objects = {
+    "Polaris": {"ra": 37.95456067, "dec": 89.26410897},
+    "Sirius": {"ra": 101.28715533, "dec": -16.71611586},
+    "Betelgeuse": {"ra": 88.792939, "dec": 7.407064},
+}
 
 class MachineState(Enum):
     READY = "ready"
@@ -28,6 +36,11 @@ class StateMachine:
         self._lock = threading.Lock()
         self._connect_timeout = None
         self._move_timeout = None
+        self.is_calibrated = False
+        self.cur_object = None
+        self.alt = 0.0
+        self.az = 0.0
+        self.to_obj = None
 
     def _set_state(self, state, error_data=None):
         self.state = state
@@ -99,7 +112,27 @@ class StateMachine:
             print(f"I/O action: starting move in direction '{direction}' with speed {speed}...")
 
             return self._send_response(True, "SENT", f"Sent MVS command to I/O for direction '{direction}' at speed {speed}.")
-        
+
+    def position(self):
+        with self._lock:
+            self._cancel_timeout()
+            return self._send_response(True, f"POSITION {self.alt} {self.az}")
+
+    def calibrated(self):
+        with self._lock:
+            self._cancel_timeout()
+            self.is_calibrated = True
+            self.cur_object = "Polaris"
+            self.az, self.alt = convert_radec_to_az_el(
+                sky_objects[self.cur_object]["ra"], sky_objects[self.cur_object]["dec"],
+                latitude_deg=46.48546944,  # Example latitude
+                longitude_deg=13.8475167,  # Example longitude
+                utc_time=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=2)))
+            )
+            print(f"I/O action: calibration complete.")
+
+            return self._send_response(True, "CALIBRATED", "Calibration complete.")
+
     def move_end(self):
         with self._lock:
             self._cancel_timeout()
@@ -109,33 +142,15 @@ class StateMachine:
 
             return self._send_response(True, "SENT", f"Sent MVE command to I/O")
 
-    def move(self, steps_a: int, steps_e: int):
+    def move(self, steps_e: int, steps_a: int):
         with self._lock:
-            if self.state != MachineState.CONNECTED:
-                return {
-                    "success": False,
-                    "message": f"Cannot move from state {self.state.value}.",
-                    "state": self.state.value,
-                    "error_data": self.error_data,
-                }
-
             self._cancel_timeout()
             self._set_state(MachineState.MOVING)
-            self.error_data = None
 
             print(f"I/O action: moving {steps_a} units along axis A and {steps_e} units along axis E...")
         
-            self._move_timeout = threading.Timer(10.0, self._move_timeout_handler)
-            self._move_timeout.daemon = True
-            self._move_timeout.start()
-
-            return {
-                "success": True,
-                "message": "Move command started.",
-                "state": self.state.value,
-                "error_data": None,
-            }
-
+            return self._send_response(True, "SENT", "Sent MV command to I/O.")
+            
     def get_io_response(self):
         with self._lock:
             return {
@@ -170,6 +185,19 @@ class StateMachine:
                 elif message == "NOT_RDY":
                     self._set_state(MachineState.READY)
                     return self._send_response(False, "NOT_RDY", "Move failed: I/O reported not ready")
+                elif message == "MV_ACK":
+                    self._set_state(MachineState.MOVING)
+                    return self._send_response(True, "MV_ACK", "Move acknowledged")
+                elif message == "READY":
+                    # target reached, update current position
+                    self.az, self.alt = convert_radec_to_az_el(
+                            sky_objects[self.to_obj]["ra"], sky_objects[self.to_obj]["dec"],
+                            latitude_deg=46.48546944,  # Example latitude
+                            longitude_deg=13.8475167,  # Example longitude
+                            utc_time=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=2)))
+                        )
+                    self._set_state(MachineState.CONNECTED)
+                    return self._send_response(True, "READY", "Move completed and I/O is ready")
 
             return {
                 "success": False,
@@ -294,28 +322,22 @@ def command_moveend():
 
 @app.route("/command/move", methods=["POST"])
 def command_move():
-    steps_a = 0
-    steps_e = 0
-
     data = request.get_json(silent=True) or {}
-    distance = data.get("p1")
-    object = data.get("p2")
-    if object:
-        # skalkuliraj koliko korakov se mora premakniti
-        print(f"Received move command with object: {object}")
-    else:
-        if distance == "left":
-            steps_a = -10
-        elif distance == "right":
-            steps_a = 10
-        elif distance == "up":  
-            steps_e = 10
-        elif distance == "down":
-            steps_e = -10
+    machine.to_obj = data.get("p1")
+    to_az, to_alt = convert_radec_to_az_el(
+        sky_objects[machine.to_obj]["ra"], sky_objects[machine.to_obj]["dec"],
+        latitude_deg=46.48546944,  # Example latitude
+        longitude_deg=13.8475167,  # Example longitude
+        utc_time=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=2)))
+    )
 
-    result = machine.move(steps_a, steps_e)
+    print(f"Received move command with object: {machine.to_obj}, target elevation: {to_alt}, target azimuth: {to_az}")
+    
+    steps_e = (to_alt - machine.alt) * K_E
+    steps_a = (to_az - machine.az) * K_A
+    result = machine.move(steps_e, steps_a)
     if result["success"]:
-        command_queue.put({"type": "move", "steps_a": steps_a, "steps_e": steps_e})
+        command_queue.put({"type": CommandType.MV.value, "steps_a": steps_a, "steps_e": steps_e})
     return jsonify(result)
 
 @app.route("/command/response", methods=["POST"])
@@ -335,6 +357,16 @@ def command_ping():
 @app.route("/state", methods=["GET"])
 def get_state():
     return jsonify(machine.status())
+
+@app.route("/command/calibrated", methods=["POST"])
+def set_calibrated():
+    result = machine.calibrated()
+    return jsonify(result)
+
+@app.route("/command/position", methods=["POST"])
+def get_position():
+    result = machine.position()
+    return jsonify(result)
 
 @app.route("/command/reset", methods=["POST"])
 @auth_required
