@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime, timezone
 
-from app import app
+from app import app, start_track_thread, stop_track_thread
 from telescope import (
     convert_radec_to_az_el,
     degrees_to_dms,
@@ -55,6 +55,18 @@ class CoordConversionTests(unittest.TestCase):
             polaris["dec"],
             {"degrees": expected_dec[0], "minutes": expected_dec[1], "seconds": expected_dec[2]},
         )
+
+    def test_stop_track_thread_stops_running_tracker(self):
+        stop_track_thread()
+        start_track_thread()
+
+        self.assertIsNotNone(app.track_thread)
+        self.assertTrue(app.track_thread.is_alive())
+
+        stop_track_thread()
+        app.track_thread.join(timeout=2)
+
+        self.assertFalse(app.track_thread.is_alive())
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ class CommandType(Enum):
     MVS = "MVS"
     MVE = "MVE"
     MV = "MV"
+    BTRY = "BTRY?"
 
 
 class MessageType(Enum):
@@ -17,6 +18,7 @@ class MessageType(Enum):
     READY = "READY"
     SENT = "SENT"
     TIMEOUT = "TIMEOUT"
+    BTRY = "BTRY"
 
 class MachineState(Enum):
     READY = "ready"
@@ -36,12 +38,13 @@ class IOEmulator:
         self._lock = threading.Lock()
 
     # (                      True, MessageType.MVS_ACK), state = MOVING
-    def _send_response(self, success, message: MessageType):
+    def _send_response(self, success, message: MessageType, data=None):
         self.response_queue.put({
             "success": success,
             "message": message.value,
             "state": self.state.value,
             "error_data": None if success else self.error_data,
+            "data": data
         })
 
     # lahko vrne samo ready in not ready
@@ -60,7 +63,7 @@ class IOEmulator:
             self.error_data = None
             self._send_response(True, MessageType.MV_ACK)
             print(f"Emulator: move of {steps_a} units along axis A and {steps_e} units along axis E acknowledged")
-        threading.Timer(7.0, self._simulate_target_reached).start()
+        threading.Timer(2.0, self._simulate_target_reached).start()
 
     # lahko vrne samo MVS_ACK in NOT_RDY
     def _simulate_move_start(self, direction: str, speed: int):
@@ -102,6 +105,11 @@ class IOEmulator:
 
         threading.Timer(1.0, self._simulate_move_start, args=(direction, speed)).start()
 
+    def _handle_battery(self):
+        with self._lock:
+            self._send_response(True, MessageType.BTRY, "10765")
+            print("Emulator: battery status requested, responding with READY")
+
     def _handle_move_end(self):
         with self._lock:
             self.state = MachineState.PENDING
@@ -131,6 +139,15 @@ class IOEmulator:
             return
         if command_type == CommandType.MVE.value:
             self._handle_move_end()
+            return
+        if command_type == CommandType.BTRY.value:
+            self._handle_battery()
+
+            with self._lock:
+                self.state = MachineState.CONNECTED
+                self.error_data = None
+                self._send_response(True, MessageType.READY)
+                print("Emulator: battery status requested, responding with READY")
             return
 
         print(f"Emulator: unknown command {command_type}")

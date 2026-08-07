@@ -1,7 +1,6 @@
 import threading
 import queue
 from enum import Enum
-from turtle import speed
 from flask import Flask, jsonify, request
 import secrets
 import datetime
@@ -26,6 +25,7 @@ class MachineState(Enum):
     CONNECTING = "connecting"
     CONNECTED = "connected"
     MOVING = "moving"
+    TRACKING = "tracking"
     ERROR = "error"
 
 class StateMachine:
@@ -41,6 +41,7 @@ class StateMachine:
         self.alt = 0.0
         self.az = 0.0
         self.to_obj = None
+        self.tracking = False
 
     def _set_state(self, state, error_data=None):
         self.state = state
@@ -123,6 +124,7 @@ class StateMachine:
             self._cancel_timeout()
             self.is_calibrated = True
             self.cur_object = "Polaris"
+            self.to_obj = "Polaris"
             self.az, self.alt = convert_radec_to_az_el(
                 sky_objects[self.cur_object]["ra"], sky_objects[self.cur_object]["dec"],
                 latitude_deg=46.48546944,  # Example latitude
@@ -142,9 +144,27 @@ class StateMachine:
 
             return self._send_response(True, "SENT", f"Sent MVE command to I/O")
 
+    def track(self, action: str):
+        with self._lock:
+            self._cancel_timeout()
+            if action == "start_track":
+                self.tracking = True
+                print("I/O action: starting tracking...")
+                start_track_thread()
+                return self._send_response(True, "TRACKING", "Tracking started.")
+            elif action == "stop_track":
+                self.tracking = False
+                print("I/O action: stopping tracking...")
+                stop_track_thread()
+                return self._send_response(True, "STOPPED", "Tracking stopped.")
+            else:
+                return self._send_response(False, "INVALID_ACTION", f"Invalid tracking action: {action}")
+
     def move(self, steps_e: int, steps_a: int):
         with self._lock:
             self._cancel_timeout()
+            if self.state != MachineState.CONNECTED:
+                return self._send_response(False, "NOT_RDY", "Cannot move: I/O not connected or ready.")
             self._set_state(MachineState.MOVING)
 
             print(f"I/O action: moving {steps_a} units along axis A and {steps_e} units along axis E...")
@@ -160,7 +180,7 @@ class StateMachine:
                 "error_data": self.error_data,
             }
 
-    def receive_io_response(self, success: bool, message: str):
+    def receive_io_response(self, success: bool, message: str, data=None):
         with self._lock:
             if self.state == MachineState.CONNECTING: # MV_ST?
                 self._cancel_timeout()
@@ -189,15 +209,11 @@ class StateMachine:
                     self._set_state(MachineState.MOVING)
                     return self._send_response(True, "MV_ACK", "Move acknowledged")
                 elif message == "READY":
-                    # target reached, update current position
-                    self.az, self.alt = convert_radec_to_az_el(
-                            sky_objects[self.to_obj]["ra"], sky_objects[self.to_obj]["dec"],
-                            latitude_deg=46.48546944,  # Example latitude
-                            longitude_deg=13.8475167,  # Example longitude
-                            utc_time=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=2)))
-                        )
                     self._set_state(MachineState.CONNECTED)
                     return self._send_response(True, "READY", "Move completed and I/O is ready")
+                elif message == "BTRY":
+                    self._set_state(MachineState.CONNECTED)
+                    return self._send_response(True, "BTRY", "Battery status received", data)
 
             return {
                 "success": False,
@@ -260,6 +276,17 @@ def auth_required(func):
 
     return wrapper
 
+track_stop_event = threading.Event()
+track_thread = None
+
+
+def tracker():
+    print("Tracker thread started, tracking the telescope position...")
+    while not track_stop_event.is_set():
+        update_position()
+        print(f"Tracking: Current position - Alt: {machine.alt}, Az: {machine.az}")
+        track_stop_event.wait(3)  # Wait for 3 seconds before next tracking update
+
 def response_listener() -> None:
     print("Response listener thread started, waiting for responses from the emulator...")
     while True:
@@ -275,12 +302,56 @@ def response_listener() -> None:
         success = response.get("success", False)
         message = response.get("message")
 
-        # ta samo vpise v lokalne spremenljivke masine
-        machine.receive_io_response(success=success, message=message)
+        # Ask for battery status after each response
+        command_queue.put({"type": CommandType.BTRY.value})
+
+        # Pass the response to the state machine to handle it
+        machine.receive_io_response(success=success, message=message, data=response.get("data"))
 
 def start_response_thread() -> None:
     response_thread = threading.Thread(target=response_listener, daemon=True)
     response_thread.start()
+
+def start_track_thread() -> None:
+    global track_thread, track_stop_event
+
+    if track_thread is not None and track_thread.is_alive():
+        return
+
+    track_stop_event = threading.Event()
+    track_thread = threading.Thread(target=tracker, daemon=True)
+    track_thread.start()
+    app.track_thread = track_thread
+
+
+def stop_track_thread() -> None:
+    global track_thread, track_stop_event
+
+    if track_stop_event is not None:
+        track_stop_event.set()
+
+    if track_thread is not None and track_thread.is_alive():
+        track_thread.join(timeout=1)
+
+    app.track_thread = track_thread
+
+def update_position():
+    if machine.to_obj is not None:
+        print(f"Updating position for object: {machine.to_obj}")
+        to_az, to_alt = convert_radec_to_az_el(
+            sky_objects[machine.to_obj]["ra"], sky_objects[machine.to_obj]["dec"],
+            latitude_deg=46.48546944,  # Example latitude
+            longitude_deg=13.8475167,  # Example longitude
+            utc_time=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=2)))
+        )
+
+        steps_e = (to_alt - machine.alt) * K_E
+        steps_a = (to_az - machine.az) * K_A
+        result = machine.move(steps_e, steps_a)
+        if result["success"]:
+            command_queue.put({"type": CommandType.MV.value, "steps_a": steps_a, "steps_e": steps_e})
+
+# API endpoints
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -337,16 +408,9 @@ def command_move():
     steps_a = (to_az - machine.az) * K_A
     result = machine.move(steps_e, steps_a)
     if result["success"]:
+        machine.alt = to_alt
+        machine.az = to_az
         command_queue.put({"type": CommandType.MV.value, "steps_a": steps_a, "steps_e": steps_e})
-    return jsonify(result)
-
-@app.route("/command/response", methods=["POST"])
-def command_connect_response():
-    data = request.get_json(silent=True) or {}
-    success = data.get("success", True)
-    message = data.get("message")
-    print(f"R........................{success}")
-    result = machine.receive_io_response(success=success, message=message)
     return jsonify(result)
 
 @app.route("/command/ping", methods=["POST"])
@@ -354,9 +418,13 @@ def command_ping():
     result = machine.get_io_response()
     return jsonify(result)
 
-@app.route("/state", methods=["GET"])
-def get_state():
-    return jsonify(machine.status())
+@app.route("/command/track", methods=["POST"])
+def command_track():
+    data = request.get_json(silent=True) or {}
+    action = data.get("p1")
+    result = machine.track(action);
+
+    return jsonify(result)
 
 @app.route("/command/calibrated", methods=["POST"])
 def set_calibrated():
@@ -368,15 +436,10 @@ def get_position():
     result = machine.position()
     return jsonify(result)
 
-@app.route("/command/reset", methods=["POST"])
-@auth_required
-def command_reset():
-    machine.to_ready()
-    return jsonify({
-        "success": True,
-        "message": "Machine reset to ready state.",
-        "state": machine.state.value,
-    })
+@app.route("/command/battery", methods=["POST"])
+def get_battery():
+    result = machine.battery()
+    return jsonify(result)
 
 @app.route("/command/getastrodata", methods=["POST"])
 def getastrodata():
