@@ -41,7 +41,7 @@ class StateMachine:
         self.alt = 0.0
         self.az = 0.0
         self.to_obj = None
-        self.tracking = False
+        self.batery = ""
 
     def _set_state(self, state, error_data=None):
         self.state = state
@@ -77,14 +77,17 @@ class StateMachine:
             )
             self._move_timeout = None
 
-    def _send_response(self, success, message: str, data=None):
+    def _send_response(self, success, message: str, error_data=None, data=None):
         self.message = message
-        self.error_data = data
+        self.error_data = error_data
+        self.batery = data
+
         return {
                     "success": success,
                     "message": self.message,
                     "state": self.state.value,
                     "error_data": self.error_data,
+                    "data": data
         }
 
     def to_ready(self):
@@ -148,12 +151,10 @@ class StateMachine:
         with self._lock:
             self._cancel_timeout()
             if action == "start_track":
-                self.tracking = True
                 print("I/O action: starting tracking...")
                 start_track_thread()
                 return self._send_response(True, "TRACKING", "Tracking started.")
             elif action == "stop_track":
-                self.tracking = False
                 print("I/O action: stopping tracking...")
                 stop_track_thread()
                 return self._send_response(True, "STOPPED", "Tracking stopped.")
@@ -172,16 +173,27 @@ class StateMachine:
             return self._send_response(True, "SENT", "Sent MV command to I/O.")
             
     def get_io_response(self):
+        #  Ask for battery status after each response
+        if self.state == MachineState.CONNECTED:
+            command_queue.put({"type": CommandType.BTRY.value})
+
         with self._lock:
             return {
                 "success": True,
                 "message": self.message,
                 "state": self.state.value,
                 "error_data": self.error_data,
+                "battery": self.batery
             }
 
     def receive_io_response(self, success: bool, message: str, data=None):
         with self._lock:
+            if message == "BTRY":
+                self._cancel_timeout()
+                print("Received battery status from I/O:", data)
+                self._set_state(MachineState.CONNECTED)
+                return self._send_response(True, "BTRY", "Battery status received", data) # funkcija vpisi in posebi data ter error data
+
             if self.state == MachineState.CONNECTING: # MV_ST?
                 self._cancel_timeout()
                 if message == "READY":
@@ -190,8 +202,7 @@ class StateMachine:
                 elif message == "NOT_RDY":
                     self._set_state(MachineState.READY)
                     return self._send_response(True, "NOT_RDY", "Connection failed: I/O reported not ready")
-
-                
+               
             if self.state == MachineState.MOVING:
                 print("...........................Received I/O response:", message)
 
@@ -211,9 +222,6 @@ class StateMachine:
                 elif message == "READY":
                     self._set_state(MachineState.CONNECTED)
                     return self._send_response(True, "READY", "Move completed and I/O is ready")
-                elif message == "BTRY":
-                    self._set_state(MachineState.CONNECTED)
-                    return self._send_response(True, "BTRY", "Battery status received", data)
 
             return {
                 "success": False,
@@ -301,9 +309,6 @@ def response_listener() -> None:
 
         success = response.get("success", False)
         message = response.get("message")
-
-        # # Ask for battery status after each response
-        # command_queue.put({"type": CommandType.BTRY.value})
 
         # Pass the response to the state machine to handle it
         machine.receive_io_response(success=success, message=message, data=response.get("data"))

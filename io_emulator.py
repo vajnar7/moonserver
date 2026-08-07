@@ -37,7 +37,8 @@ class IOEmulator:
         self.response_queue = response_queue
         self._lock = threading.Lock()
 
-    # (                      True, MessageType.MVS_ACK), state = MOVING
+    #             self._send_response(True, MessageType.BTRY, "10.74V")
+
     def _send_response(self, success, message: MessageType, data=None):
         self.response_queue.put({
             "success": success,
@@ -107,8 +108,8 @@ class IOEmulator:
 
     def _handle_battery(self):
         with self._lock:
-            self._send_response(True, MessageType.BTRY, "10765")
-            print("Emulator: battery status requested, responding with READY")
+            self._send_response(True, MessageType.BTRY, "10.74V")
+            print("Emulator: battery status requested, responding with BTRY")
 
     def _handle_move_end(self):
         with self._lock:
@@ -142,12 +143,6 @@ class IOEmulator:
             return
         if command_type == CommandType.BTRY.value:
             self._handle_battery()
-
-            with self._lock:
-                self.state = MachineState.CONNECTED
-                self.error_data = None
-                self._send_response(True, MessageType.READY)
-                print("Emulator: battery status requested, responding with READY")
             return
 
         print(f"Emulator: unknown command {command_type}")
