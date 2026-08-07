@@ -302,8 +302,8 @@ def response_listener() -> None:
         success = response.get("success", False)
         message = response.get("message")
 
-        # Ask for battery status after each response
-        command_queue.put({"type": CommandType.BTRY.value})
+        # # Ask for battery status after each response
+        # command_queue.put({"type": CommandType.BTRY.value})
 
         # Pass the response to the state machine to handle it
         machine.receive_io_response(success=success, message=message, data=response.get("data"))
@@ -347,6 +347,8 @@ def update_position():
 
         steps_e = (to_alt - machine.alt) * K_E
         steps_a = (to_az - machine.az) * K_A
+        machine.alt = to_alt
+        machine.az = to_az
         result = machine.move(steps_e, steps_a)
         if result["success"]:
             command_queue.put({"type": CommandType.MV.value, "steps_a": steps_a, "steps_e": steps_e})
