@@ -11,8 +11,14 @@ from telescope import convert_radec_to_az_el, degrees_to_dms, degrees_to_hms
 app = Flask(__name__)
 
 # koliko korakov je potrebno za premik za 1 stopinjo
-K_E = 100
-K_A = 100
+MOTOR_STEPS_NUM = 3200.0
+REDUCTOR_TRANSLATION = 30.0
+BELT_TRANSLATION = 48.0 / 14.0
+# na obrat
+K = MOTOR_STEPS_NUM * REDUCTOR_TRANSLATION * BELT_TRANSLATION
+# 914 microsteps per stopinja
+K_E = K / 360
+K_A = K / 360
 
 sky_objects = {
     "Polaris": {"ra": 37.95456067, "dec": 89.26410897},
@@ -90,6 +96,17 @@ class StateMachine:
                     "data": data
         }
 
+    def calculate_steps(self, to_alt, to_az):
+        steps_e = int((to_alt - machine.alt) * K_E)
+        steps_a = int((to_az - machine.az) * K_A)
+        print(f"Calculated steps: {steps_e} for elevation, {steps_a} for azimuth")
+        if steps_e != 0:
+            machine.alt = to_alt
+        if steps_a != 0:    
+            machine.az = to_az
+            
+        return machine.move(steps_e, steps_a)
+
     def to_ready(self):
         with self._lock:
             self._cancel_timeout()
@@ -162,6 +179,9 @@ class StateMachine:
                 return self._send_response(False, "INVALID_ACTION", f"Invalid tracking action: {action}")
 
     def move(self, steps_e: int, steps_a: int):
+        if steps_a == 0 and steps_e == 0:
+            return self._send_response(True, "NOP", "Ignore, too small number of steps to move")
+        
         with self._lock:
             self._cancel_timeout()
             if self.state != MachineState.CONNECTED:
@@ -169,7 +189,8 @@ class StateMachine:
             self._set_state(MachineState.MOVING)
 
             print(f"I/O action: moving {steps_a} units along axis A and {steps_e} units along axis E...")
-        
+            command_queue.put({"type": CommandType.MV.value, "steps_a": steps_a, "steps_e": steps_e})
+
             return self._send_response(True, "SENT", "Sent MV command to I/O.")
             
     def get_io_response(self):
@@ -183,11 +204,16 @@ class StateMachine:
                 "message": self.message,
                 "state": self.state.value,
                 "error_data": self.error_data,
-                "battery": self.batery
+                "data": self.batery,
             }
 
-    def receive_io_response(self, success: bool, message: str, data=None):
+    def receive_io_response(self, success: bool, message: str, state: str, data=None):
         with self._lock:
+
+            if state == "error":
+                self._set_state(MachineState.ERROR, data)
+
+
             if message == "BTRY":
                 self._cancel_timeout()
                 print("Received battery status from I/O:", data)
@@ -309,9 +335,10 @@ def response_listener() -> None:
 
         success = response.get("success", False)
         message = response.get("message")
+        state = response.get("state")
 
         # Pass the response to the state machine to handle it
-        machine.receive_io_response(success=success, message=message, data=response.get("data"))
+        machine.receive_io_response(success=success, message=message, state=state, data=response.get("data"))
 
 def start_response_thread() -> None:
     response_thread = threading.Thread(target=response_listener, daemon=True)
@@ -350,13 +377,7 @@ def update_position():
             utc_time=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=2)))
         )
 
-        steps_e = (to_alt - machine.alt) * K_E
-        steps_a = (to_az - machine.az) * K_A
-        machine.alt = to_alt
-        machine.az = to_az
-        result = machine.move(steps_e, steps_a)
-        if result["success"]:
-            command_queue.put({"type": CommandType.MV.value, "steps_a": steps_a, "steps_e": steps_e})
+        machine.calculate_steps(to_alt, to_az)
 
 # API endpoints
 
@@ -410,14 +431,10 @@ def command_move():
     )
 
     print(f"Received move command with object: {machine.to_obj}, target elevation: {to_alt}, target azimuth: {to_az}")
-    
-    steps_e = (to_alt - machine.alt) * K_E
-    steps_a = (to_az - machine.az) * K_A
-    result = machine.move(steps_e, steps_a)
-    if result["success"]:
-        machine.alt = to_alt
-        machine.az = to_az
-        command_queue.put({"type": CommandType.MV.value, "steps_a": steps_a, "steps_e": steps_e})
+
+    print("................Koloboc", to_alt, to_az)
+    result = machine.calculate_steps(to_alt, to_az)
+
     return jsonify(result)
 
 @app.route("/command/ping", methods=["POST"])
@@ -429,7 +446,7 @@ def command_ping():
 def command_track():
     data = request.get_json(silent=True) or {}
     action = data.get("p1")
-    result = machine.track(action);
+    result = machine.track(action)
 
     return jsonify(result)
 

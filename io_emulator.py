@@ -19,6 +19,7 @@ class MessageType(Enum):
     SENT = "SENT"
     TIMEOUT = "TIMEOUT"
     BTRY = "BTRY"
+    ERROR = "ERROR"
 
 class MachineState(Enum):
     READY = "ready"
@@ -47,6 +48,13 @@ class IOEmulator:
             "error_data": None if success else self.error_data,
             "data": data
         })
+
+    def _simulate_stop_switch(self):
+        with self._lock:
+            self.state = MachineState.ERROR
+            self.error_data = "Stop switch activated"
+            self._send_response(False, MessageType.ERROR, self.error_data)
+            print("Emulator: stop switch activated, machine in error state")   
 
     # lahko vrne samo ready in not ready
     def _simulate_connect(self):
@@ -96,6 +104,8 @@ class IOEmulator:
             print("Emulator: received connect command, waiting to respond...")
 
         threading.Timer(3.0, self._simulate_connect).start()
+        # simulate a stop switch activation after 10 seconds for testing purposes
+        # threading.Timer(10.0, self._simulate_stop_switch).start()
 
     
     def _handle_move_start(self, direction: str, speed: int):
