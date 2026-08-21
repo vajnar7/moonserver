@@ -20,6 +20,8 @@ class MessageType(Enum):
     TIMEOUT = "TIMEOUT"
     BTRY = "BTRY"
     ERROR = "ERROR"
+    WARNING = "WARNING"
+    INFO = "INFO"
 
 class MachineState(Enum):
     READY = "ready"
@@ -40,16 +42,28 @@ class IOEmulator:
 
     #             self._send_response(True, MessageType.BTRY, "10.74V")
 
-    def _send_response(self, success, message: MessageType, data=None):
+    def _send_response(self, success, message: MessageType, data=None, warning=None, info=None):
         self.response_queue.put({
             "success": success,
             "message": message.value,
             "state": self.state.value,
             "error_data": None if success else self.error_data,
-            "data": data
+            "data": data,
+            "warning": warning,
+            "info": info
         })
 
-    def _simulate_stop_switch(self):
+    def _simulate_warning(self, warning_message):
+        with self._lock:
+            self._send_response(True, MessageType.WARNING, warning=warning_message)
+            print(f"Emulator: warning simulated: {warning_message}")
+
+    def _simulate_info(self, info_message):
+        with self._lock:
+            self._send_response(True, MessageType.INFO, info=info_message)
+            print(f"Emulator: info simulated: {info_message}")
+
+    def _simulate_error(self):
         with self._lock:
             self.state = MachineState.ERROR
             self.error_data = "Stop switch activated"
@@ -104,8 +118,11 @@ class IOEmulator:
             print("Emulator: received connect command, waiting to respond...")
 
         threading.Timer(3.0, self._simulate_connect).start()
+
         # simulate a stop switch activation after 10 seconds for testing purposes
-        # threading.Timer(10.0, self._simulate_stop_switch).start()
+        # threading.Timer(30.0, self._simulate_error).start()
+        threading.Timer(15.0, self._simulate_warning, args=("Low battery warning",)).start()
+        threading.Timer(20.0, self._simulate_info, args=("Info: Maintenance required",)).start()
 
     
     def _handle_move_start(self, direction: str, speed: int):

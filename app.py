@@ -48,6 +48,8 @@ class StateMachine:
         self.az = 0.0
         self.to_obj = None
         self.batery = ""
+        self.warning = ""
+        self.info = ""
 
     def _set_state(self, state, error_data=None):
         self.state = state
@@ -83,17 +85,21 @@ class StateMachine:
             )
             self._move_timeout = None
 
-    def _send_response(self, success, message: str, error_data=None, data=None):
+    def _send_response(self, success, message: str, error_data=None, data=None, warning=None, info=None):
         self.message = message
         self.error_data = error_data
         self.batery = data
+        self.warning = warning
+        self.info = info
 
         return {
                     "success": success,
                     "message": self.message,
                     "state": self.state.value,
                     "error_data": self.error_data,
-                    "data": data
+                    "data": data,
+                    "warning": warning,
+                    "info": info
         }
 
     def calculate_steps(self, to_alt, to_az):
@@ -199,28 +205,42 @@ class StateMachine:
             command_queue.put({"type": CommandType.BTRY.value})
 
         with self._lock:
-            return {
+            print("Fujtebode svinja: ", self.warning)
+
+            res = {
                 "success": True,
                 "message": self.message,
                 "state": self.state.value,
                 "error_data": self.error_data,
                 "data": self.batery,
+                "warning": self.warning,
+                "info": self.info
             }
+            self.warning = ""
+            self.info = ""
+            return res
 
-    def receive_io_response(self, success: bool, message: str, state: str, data=None):
+    def receive_io_response(self, success: bool, message: str, state: str, data=None, warning=None, info=None):
         with self._lock:
 
             if state == "error":
+                print("Received error state from I/O:", data, message)
                 self._set_state(MachineState.ERROR, data)
 
 
-            if message == "BTRY":
-                self._cancel_timeout()
-                print("Received battery status from I/O:", data)
-                self._set_state(MachineState.CONNECTED)
-                return self._send_response(True, "BTRY", "Battery status received", data) # funkcija vpisi in posebi data ter error data
+            elif message == "WARNING":
+                print("Received warning from I/O:", warning)
+                self.warning = warning
 
-            if self.state == MachineState.CONNECTING: # MV_ST?
+            elif message == "INFO":
+                print("Received info from I/O:", info)
+                self.info = info
+
+            elif message == "BTRY":
+                print("Received battery status from I/O:", data)
+                self.batery = data
+
+            elif self.state == MachineState.CONNECTING: # MV_ST?
                 self._cancel_timeout()
                 if message == "READY":
                     self._set_state(MachineState.CONNECTED)
@@ -338,7 +358,7 @@ def response_listener() -> None:
         state = response.get("state")
 
         # Pass the response to the state machine to handle it
-        machine.receive_io_response(success=success, message=message, state=state, data=response.get("data"))
+        machine.receive_io_response(success=success, message=message, state=state, data=response.get("data"), warning=response.get("warning"), info=response.get("info"))
 
 def start_response_thread() -> None:
     response_thread = threading.Thread(target=response_listener, daemon=True)
@@ -463,6 +483,11 @@ def get_position():
 @app.route("/command/battery", methods=["POST"])
 def get_battery():
     result = machine.battery()
+    return jsonify(result)
+
+@app.route("/command/reset", methods=["POST"])
+def reset():
+    result = machine._set_state(MachineState.READY)
     return jsonify(result)
 
 @app.route("/command/getastrodata", methods=["POST"])
