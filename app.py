@@ -41,7 +41,7 @@ class StateMachine:
         self.error_data = None
         self._lock = threading.Lock()
         self._connect_timeout = None
-        self._move_timeout = None
+        self._ping_timeout = None
         self.is_calibrated = False
         self.cur_object = None
         self.alt = 0.0
@@ -59,9 +59,9 @@ class StateMachine:
         if self._connect_timeout is not None:
             self._connect_timeout.cancel()
             self._connect_timeout = None
-        if self._move_timeout is not None:
-            self._move_timeout.cancel()
-            self._move_timeout = None
+        if self._ping_timeout is not None:
+            self._ping_timeout.cancel()
+            self._ping_timeout = None
 
     def _connect_timeout_handler(self):
         with self._lock:
@@ -74,7 +74,7 @@ class StateMachine:
             )
             self._connect_timeout = None
 
-    def _move_timeout_handler(self):
+    def _ping_timeout_handler(self):
         with self._lock:
             if self.state != MachineState.MOVING:
                 return
@@ -113,27 +113,20 @@ class StateMachine:
             
         return machine.move(steps_e, steps_a)
 
-    def to_ready(self):
-        with self._lock:
-            self._cancel_timeout()
-            self._set_state(MachineState.READY)
-
     def connect(self):
         with self._lock:         
-            self._cancel_timeout()
             self._set_state(MachineState.CONNECTING)
 
             print("I/O action: attempting to connect...")
 
-            # self._connect_timeout = threading.Timer(3.0, self._connect_timeout_handler)
-            # self._connect_timeout.daemon = True
-            # self._connect_timeout.start()
+            self._connect_timeout = threading.Timer(10.0, self._connect_timeout_handler)
+            self._connect_timeout.daemon = True
+            self._connect_timeout.start()
 
             return self._send_response(True, "SENT", "Sent MV_ST? command to I/O.")
 
     def move_start(self, direction: str, speed: int):
         with self._lock:
-            self._cancel_timeout()
             self._set_state(MachineState.MOVING)
 
             print(f"I/O action: starting move in direction '{direction}' with speed {speed}...")
@@ -142,12 +135,10 @@ class StateMachine:
 
     def position(self):
         with self._lock:
-            self._cancel_timeout()
             return self._send_response(True, f"POSITION {self.alt} {self.az}")
 
     def calibrated(self):
         with self._lock:
-            self._cancel_timeout()
             self.is_calibrated = True
             self.cur_object = "Polaris"
             self.to_obj = "Polaris"
@@ -163,7 +154,6 @@ class StateMachine:
 
     def move_end(self):
         with self._lock:
-            self._cancel_timeout()
             self._set_state(MachineState.MOVING)
 
             print(f"I/O action: stopping previous move...")
@@ -172,7 +162,6 @@ class StateMachine:
 
     def track(self, action: str):
         with self._lock:
-            self._cancel_timeout()
             if action == "start_track":
                 print("I/O action: starting tracking...")
                 start_track_thread()
@@ -189,7 +178,6 @@ class StateMachine:
             return self._send_response(True, "NOP", "Ignore, too small number of steps to move")
         
         with self._lock:
-            self._cancel_timeout()
             if self.state != MachineState.CONNECTED:
                 return self._send_response(False, "NOT_RDY", "Cannot move: I/O not connected or ready.")
             self._set_state(MachineState.MOVING)
@@ -199,14 +187,12 @@ class StateMachine:
 
             return self._send_response(True, "SENT", "Sent MV command to I/O.")
             
-    def get_io_response(self):
+    def ping(self):
         #  Ask for battery status after each response
         if self.state == MachineState.CONNECTED:
             command_queue.put({"type": CommandType.BTRY.value})
 
         with self._lock:
-            print("Fujtebode svinja: ", self.warning)
-
             res = {
                 "success": True,
                 "message": self.message,
@@ -222,6 +208,7 @@ class StateMachine:
 
     def receive_io_response(self, success: bool, message: str, state: str, data=None, warning=None, info=None):
         with self._lock:
+            self._cancel_timeout()
 
             if state == "error":
                 print("Received error state from I/O:", data, message)
@@ -241,7 +228,6 @@ class StateMachine:
                 self.batery = data
 
             elif self.state == MachineState.CONNECTING: # MV_ST?
-                self._cancel_timeout()
                 if message == "READY":
                     self._set_state(MachineState.CONNECTED)
                     return self._send_response(True, "READY", "Connection established")
@@ -252,7 +238,6 @@ class StateMachine:
             if self.state == MachineState.MOVING:
                 print("...........................Received I/O response:", message)
 
-                self._cancel_timeout()
                 if message == "MVS_ACK":
                     self._set_state(MachineState.MOVING)
                     return self._send_response(True, "MVS_ACK", "Start moving")
@@ -452,14 +437,13 @@ def command_move():
 
     print(f"Received move command with object: {machine.to_obj}, target elevation: {to_alt}, target azimuth: {to_az}")
 
-    print("................Koloboc", to_alt, to_az)
     result = machine.calculate_steps(to_alt, to_az)
 
     return jsonify(result)
 
 @app.route("/command/ping", methods=["POST"])
 def command_ping():
-    result = machine.get_io_response()
+    result = machine.ping()
     return jsonify(result)
 
 @app.route("/command/track", methods=["POST"])
