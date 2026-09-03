@@ -6,7 +6,9 @@ import secrets
 import datetime
 from functools import wraps
 from io_emulator import start_emulator, CommandType
+from star_altaz import KNOWN_STARS, calculate_alt_az
 from telescope import convert_radec_to_az_el, degrees_to_dms, degrees_to_hms
+from skyfield.api import load
 
 app = Flask(__name__)
 
@@ -20,11 +22,11 @@ K = MOTOR_STEPS_NUM * REDUCTOR_TRANSLATION * BELT_TRANSLATION
 K_E = K / 360
 K_A = K / 360
 
-sky_objects = {
-    "Polaris": {"ra": 37.95456067, "dec": 89.26410897},
-    "Sirius": {"ra": 101.28715533, "dec": -16.71611586},
-    "Betelgeuse": {"ra": 88.792939, "dec": 7.407064},
-}
+# sky_objects = {
+#     "Polaris": {"ra": 37.95456067, "dec": 89.26410897},
+#     "Sirius": {"ra": 101.28715533, "dec": -16.71611586},
+#     "Betelgeuse": {"ra": 88.792939, "dec": 7.407064},
+# }
 
 class MachineState(Enum):
     READY = "ready"
@@ -50,6 +52,8 @@ class StateMachine:
         self.batery = ""
         self.warning = ""
         self.info = ""
+        self.ts = load.timescale()
+        self.eph = load('de421.bsp')
 
     def _set_state(self, state, error_data=None):
         self.state = state
@@ -140,14 +144,9 @@ class StateMachine:
     def calibrated(self):
         with self._lock:
             self.is_calibrated = True
-            self.cur_object = "Polaris"
-            self.to_obj = "Polaris"
-            self.az, self.alt = convert_radec_to_az_el(
-                sky_objects[self.cur_object]["ra"], sky_objects[self.cur_object]["dec"],
-                latitude_deg=46.48546944,  # Example latitude
-                longitude_deg=13.8475167,  # Example longitude
-                utc_time=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=2)))
-            )
+            self.cur_object = "polaris"
+            self.to_obj = "polaris"
+            self.alt, self.az = calculate_alt_az(KNOWN_STARS[self.cur_object], self.ts, self.eph)
             print(f"I/O action: calibration complete.")
 
             return self._send_response(True, "CALIBRATED", "Calibration complete.")
@@ -375,12 +374,8 @@ def stop_track_thread() -> None:
 def update_position():
     if machine.to_obj is not None:
         print(f"Updating position for object: {machine.to_obj}")
-        to_az, to_alt = convert_radec_to_az_el(
-            sky_objects[machine.to_obj]["ra"], sky_objects[machine.to_obj]["dec"],
-            latitude_deg=46.48546944,  # Example latitude
-            longitude_deg=13.8475167,  # Example longitude
-            utc_time=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=2)))
-        )
+
+        to_alt, to_az = calculate_alt_az(KNOWN_STARS[machine.to_obj], machine.ts, machine.eph)
 
         machine.calculate_steps(to_alt, to_az)
 
@@ -427,13 +422,8 @@ def command_moveend():
 @app.route("/command/move", methods=["POST"])
 def command_move():
     data = request.get_json(silent=True) or {}
-    machine.to_obj = data.get("p1")
-    to_az, to_alt = convert_radec_to_az_el(
-        sky_objects[machine.to_obj]["ra"], sky_objects[machine.to_obj]["dec"],
-        latitude_deg=46.48546944,  # Example latitude
-        longitude_deg=13.8475167,  # Example longitude
-        utc_time=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=2)))
-    )
+    machine.to_obj = data.get("p1").lower()
+    to_alt, to_az = calculate_alt_az(KNOWN_STARS[machine.to_obj], machine.ts, machine.eph)
 
     print(f"Received move command with object: {machine.to_obj}, target elevation: {to_alt}, target azimuth: {to_az}")
 
@@ -492,12 +482,12 @@ def getastrodata():
             },
         }
 
+    tjompa = {name: format_coord(KNOWN_STARS[name].ra.degrees, KNOWN_STARS[name].dec.degrees) for name in KNOWN_STARS.keys()}
+    # print("GUMA=", KNOWN_STARS["spica"].ra.degrees, KNOWN_STARS["spica"].dec.degrees)
+    print(tjompa)
+
     return {
-        "data": {
-            "Polaris": format_coord(37.95456067, 89.26410897),
-            "Sirius": format_coord(101.28715533, -16.71611586),
-            "Betelgeuse": format_coord(88.792939, 7.407064),
-        }
+        "data": tjompa
     }
 
 
