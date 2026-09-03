@@ -67,52 +67,5 @@ def calculate_alt_az(star, ts, eph) -> tuple:
 
     return alt.degrees, az.degrees
 
-def generate_move_command(current_alt, current_az, target_alt, target_az):
-    """Generate a command to move the telescope from current alt/az to target alt/az.
-    Args:
-        current_alt (float): Current altitude in degrees.
-        current_az (float): Current azimuth in degrees.
-        target_alt (float): Target altitude in degrees.
-        target_az (float): Target azimuth in degrees.
-    Returns:
-        str: Command string to move the telescope.
-    """
-    delta_alt = target_alt - current_alt
-    delta_az = target_az - current_az
 
-    steps_alt = int(delta_alt / MICROSTEP_ANGLE_DEGREES)
-    steps_az = int(delta_az / MICROSTEP_ANGLE_DEGREES)
-
-    command = f"<MV {steps_az} {steps_alt} SPEED>"
-    return command
-
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: python star_altaz.py <star_name>")
-        print(f"\nAvailable stars: {', '.join(sorted(KNOWN_STARS.keys()))}")
-        sys.exit(1)
-
-    star_input = sys.argv[1].lower()
-    if star_input not in KNOWN_STARS:
-        print(f"Error: Unknown star '{sys.argv[1]}'")
-        print(f"Available stars: {', '.join(sorted(KNOWN_STARS.keys()))}")
-        sys.exit(1)
-
-    ts = load.timescale()
-    eph = load('de421.bsp')
-
-    star = KNOWN_STARS[star_input]
-
-    print(f"Microstep angle: {MICROSTEP_ANGLE_DEGREES} degrees per microstep")
-
-    alt, az = calculate_alt_az(star, ts, eph)
-    print(f"Initial Altitude: {alt} deg, Azimuth: {az} deg")
-    time.sleep(1)
-
-    while True:
-        next_alt, next_az = calculate_alt_az(star, ts, eph)
-        cmd = generate_move_command(alt, az, next_alt, next_az)
-        print(f"Move Command: {cmd}")
-        alt, az = next_alt, next_az
-        time.sleep(1)  # Update every second
 

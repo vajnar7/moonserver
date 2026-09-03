@@ -482,12 +482,8 @@ def getastrodata():
             },
         }
 
-    tjompa = {name: format_coord(KNOWN_STARS[name].ra.degrees, KNOWN_STARS[name].dec.degrees) for name in KNOWN_STARS.keys()}
-    # print("GUMA=", KNOWN_STARS["spica"].ra.degrees, KNOWN_STARS["spica"].dec.degrees)
-    print(tjompa)
-
     return {
-        "data": tjompa
+        "data": {KNOWN_STARS[name].names[0]: format_coord(KNOWN_STARS[name].ra.degrees, KNOWN_STARS[name].dec.degrees) for name in KNOWN_STARS.keys()}
     }
 
 
